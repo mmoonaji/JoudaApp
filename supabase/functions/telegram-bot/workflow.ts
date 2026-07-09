@@ -191,6 +191,7 @@ export function appOrderButtons(
   orderId: string,
   status: string,
   orderType?: string | null,
+  discussionLink?: string | null,
 ): any[][] {
   const actions = APP_ACTIONS[status];
   if (!actions) return [];
@@ -204,8 +205,18 @@ export function appOrderButtons(
     ];
   });
 
+  if (discussionLink && ['confirmed', 'reserved', 'preparing', 'delivered'].includes(status)) {
+    buttons.push([
+      {
+        text: '💬 نقاش حول الطلب',
+        url: discussionLink,
+      },
+    ]);
+  }
+
   return buttons;
 }
+
 
 // ─── POS Invoice Workflow (inv_*) ───────────────────────
 // workflow_status values stored in: invoices.workflow_status
@@ -301,16 +312,29 @@ export const INV_ACTIONS: Record<string, Record<string, ActionDef>> = {
 export function invButtons(
   invoiceId: string,
   status: string,
+  discussionLink?: string | null,
 ): InlineBtn[][] {
   const actions = INV_ACTIONS[status];
   if (!actions) return [];
-  return Object.entries(actions).map(([action, def]) => [
+  const buttons = Object.entries(actions).map(([action, def]) => [
     {
       text: `${def.emoji} ${def.label}`,
       callback_data: `inv_${action}_${invoiceId}`,
     },
   ]);
+
+  if (discussionLink && ['pending', 'reserve', 'prepare', 'deliver'].includes(status)) {
+    buttons.push([
+      {
+        text: '💬 نقاش حول الطلب',
+        url: discussionLink,
+      },
+    ]);
+  }
+
+  return buttons;
 }
+
 
 // ─── Status Mappings ────────────────────────────────────
 

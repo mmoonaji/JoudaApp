@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, Tag, Star, PackageSearch, SlidersHorizontal, CheckCircle2, Fingerprint, Banknote, LayoutGrid, Infinity } from 'lucide-react';
 import { Product, AppCategory } from '../../../services/supabaseService';
 import { BADGE_OPTIONS } from './constants';
@@ -69,12 +70,12 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ product, cat
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
       
-      <div className="relative w-full md:max-w-2xl bg-gray-50 dark:bg-gray-950 rounded-3xl shadow-2xl flex flex-col h-[90vh] md:h-auto md:max-h-[90vh] animate-scale-in overflow-hidden border border-gray-200/50 dark:border-gray-800/50">
+      <div className="relative w-full sm:max-w-2xl bg-gray-50 dark:bg-gray-950 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[92vh] sm:h-auto sm:max-h-[90vh] animate-slide-up sm:animate-scale-in overflow-hidden border border-gray-200/50 dark:border-gray-800/50">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 md:p-5 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shrink-0">
@@ -296,6 +297,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ product, cat
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

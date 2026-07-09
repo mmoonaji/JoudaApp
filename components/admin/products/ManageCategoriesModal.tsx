@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { AppCategory } from '../../../services/supabaseService';
 import { AdminProductService } from '../../../services/admin/AdminProductService';
@@ -42,11 +43,11 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({ ca
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden">
+      <div className="relative w-full sm:max-w-md bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[75vh] sm:h-auto sm:max-h-[80vh] animate-slide-up sm:animate-scale-in overflow-hidden border border-gray-200/50 dark:border-gray-800/50">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800 shrink-0">
           <div>
             <h2 className="font-black text-gray-900 dark:text-white text-lg">إدارة تصنيفات التطبيق</h2>
@@ -97,6 +98,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({ ca
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -60,3 +60,32 @@ export async function answerCallback(
     }),
   });
 }
+
+/** Copy a message to a destination chat/topic */
+export async function copyMessage(
+  token: string,
+  chatId: string,
+  fromChatId: string,
+  messageId: number,
+  options: Record<string, unknown> = {},
+) {
+  const body = {
+    chat_id: chatId,
+    from_chat_id: fromChatId,
+    message_id: messageId,
+    ...options,
+  };
+  const res = await fetch(`${API(token)}/copyMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+/** Generate a Telegram deep link to a specific message in a supergroup */
+export function getMessageLink(chatId: string, messageId: number): string {
+  const cleanChatId = chatId.replace(/^-100/, '');
+  return `https://t.me/c/${cleanChatId}/${messageId}`;
+}
+

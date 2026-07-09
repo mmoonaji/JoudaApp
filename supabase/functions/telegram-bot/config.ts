@@ -29,7 +29,12 @@ export const env = {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+
+  /** Discussion thread/topic ID */
+  discussionThreadId: () =>
+    Number(Deno.env.get('TELEGRAM_DISCUSSION_THREAD_ID') || 0),
 };
+
 
 // ─── Status Labels (Arabic) ────────────────────────────
 

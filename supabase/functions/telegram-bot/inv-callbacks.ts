@@ -5,7 +5,8 @@
 // Handles: inv_reserve, inv_prepare, inv_deliver,
 //          inv_paid, inv_deposit, inv_reverse
 
-import { answerCallback, editMessage } from './telegram.ts';
+import { answerCallback, editMessage, getMessageLink } from './telegram.ts';
+
 import { getClients } from './db.ts';
 import { env, isAdmin, getInventoryUserId } from './config.ts';
 import { INV_ACTIONS, invButtons, INV_ACTION_TO_APP_STATUS_MAP } from './workflow.ts';
@@ -25,6 +26,19 @@ export async function handleInvCallback(
   const messageId = callback.message?.message_id;
 
   const { inventory, jouda } = getClients();
+
+  // Fetch discussion_message_id from JoudaApp customer_orders
+  let discussionMessageId: number | null = null;
+  try {
+    const { data: order } = await jouda
+      .from('customer_orders')
+      .select('discussion_message_id')
+      .eq('quotation_id', invoiceId)
+      .single();
+    if (order) discussionMessageId = order.discussion_message_id;
+  } catch (e) {
+    console.warn('Failed to fetch discussion_message_id for POS invoice:', e);
+  }
 
   // ── 1. Fetch invoice ──
   const { data: invoice } = await inventory
@@ -57,10 +71,12 @@ export async function handleInvCallback(
 
   // ── 1.5 Special action: abort (cancel confirmation) ──
   if (isAbort) {
-    const restoredButtons = invButtons(invoiceId, currentWf);
+    const discussionLink = discussionMessageId ? getMessageLink(chatId, discussionMessageId) : null;
+    const restoredButtons = invButtons(invoiceId, currentWf, discussionLink);
     await handleAbort(token, chatId, callback.id, messageId, callback.message?.text || '', restoredButtons);
     return;
   }
+
 
   // ── 2. Validate action against state machine ──
   const currentActions = INV_ACTIONS[currentWf];
@@ -202,7 +218,9 @@ export async function handleInvCallback(
     const hasHeader = orig.includes('سجل الحركات');
     const headerBlock = hasHeader ? '' : '\n\n📋 <b>سجل الحركات:</b>';
     const trail = `${headerBlock}\n${actionDef.emoji} <b>${actionDef.label}</b> (بواسطة: ${userName})`;
-    const nextBtns = invButtons(invoiceId, actionDef.nextStatus);
+    const discussionLink = discussionMessageId ? getMessageLink(chatId, discussionMessageId) : null;
+    const nextBtns = invButtons(invoiceId, actionDef.nextStatus, discussionLink);
+
 
     await editMessage(token, chatId, messageId, orig + trail, {
       reply_markup:

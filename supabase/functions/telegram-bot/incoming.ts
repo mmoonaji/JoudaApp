@@ -6,10 +6,11 @@
 // INSERT (POSTED) → send to group with inv_* buttons
 // UPDATE (is_voided) → notify group + cancel in JoudaApp
 
-import { sendMessage } from './telegram.ts';
+import { sendMessage, editMessage, getMessageLink } from './telegram.ts';
 import { getClients } from './db.ts';
 import { env } from './config.ts';
 import { invButtons } from './workflow.ts';
+
 import { fmtDate, paymentLabel, formatPhone } from './format.ts';
 
 // ─── New Invoice (POS → Group) ──────────────────────────
@@ -84,16 +85,52 @@ ${itemsList}${extraItems}
 💰 <b>الإجمالي الكلي:</b> <b>${(companyAmount + deliveryFee).toLocaleString()}</b> ر.ي
 `.trim();
 
-  const keyboard = { inline_keyboard: invButtons(record.id, 'pending') };
-
   for (const gId of env.groupIds()) {
     try {
-      await sendMessage(token, gId, message, { reply_markup: keyboard });
+      const res = await sendMessage(token, gId, message, { reply_markup: { inline_keyboard: invButtons(record.id, 'pending') } });
+      
+      const discThreadId = env.discussionThreadId();
+      if (res && res.ok && discThreadId) {
+        const originalMessageId = res.result.message_id;
+        const originalMessageLink = getMessageLink(gId, originalMessageId);
+
+        const discMsgText = `\
+💬 <b>نقاش حول الطلب (#${record.id})</b>
+👤 <b>العميل:</b> ${record.customer_name_snapshot}
+
+🔙 <a href="${originalMessageLink}">انتقال للطلب الأصلي</a>`.trim();
+
+        const discRes = await sendMessage(token, gId, discMsgText, {
+          message_thread_id: discThreadId,
+        });
+
+        if (discRes && discRes.ok) {
+          const discussionMessageId = discRes.result.message_id;
+          const discussionLink = getMessageLink(gId, discussionMessageId);
+
+          try {
+            await jouda
+              .from('customer_orders')
+              .update({ discussion_message_id: discussionMessageId })
+              .eq('quotation_id', record.id);
+          } catch (dbErr) {
+            console.warn('Failed to save discussion_message_id:', dbErr);
+          }
+
+          const updatedKeyboard = {
+            inline_keyboard: invButtons(record.id, 'pending', discussionLink),
+          };
+          await editMessage(token, gId, originalMessageId, message, {
+            reply_markup: updatedKeyboard,
+          });
+        }
+      }
     } catch (e) {
       console.error(`Failed to send invoice to ${gId}:`, e);
     }
   }
 }
+
 
 // ─── Reversed Invoice ───────────────────────────────────
 

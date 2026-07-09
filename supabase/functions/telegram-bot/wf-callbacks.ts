@@ -5,7 +5,8 @@
 // Handles: wf_approve, wf_reject, wf_reserve, wf_prepare,
 //          wf_deliver, wf_paid, wf_deposit, wf_cancel
 
-import { answerCallback, editMessage, sendMessage } from './telegram.ts';
+import { answerCallback, editMessage, sendMessage, getMessageLink } from './telegram.ts';
+
 import { getClients } from './db.ts';
 import { env, isAdmin, getInventoryUserId } from './config.ts';
 import { APP_ACTIONS, appOrderButtons, APP_TO_INV_STATUS_MAP, getActionDisplay, isShippingOrder } from './workflow.ts';
@@ -85,13 +86,15 @@ function appOrderButtonsForMessage(
   status: string,
   orderType: string | null | undefined,
   messageText: string,
+  discussionLink?: string | null,
 ): any[][] {
-  const buttons = appOrderButtons(orderId, status, orderType);
+  const buttons = appOrderButtons(orderId, status, orderType, discussionLink);
   if (status === 'preparing' && hasReserveTrail(messageText)) {
     return withoutReserveButton(buttons);
   }
   return buttons;
 }
+
 
 // ─── Main Handler ───────────────────────────────────────
 
@@ -111,10 +114,11 @@ export async function handleWfCallback(
   const { data: order, error: orderErr } = await jouda
     .from('customer_orders')
     .select(
-      'id, status, quotation_id, order_number, customer_name, customer_phone, subtotal, discount, delivery_fee, total, payment_method, notes, order_type, latitude, longitude',
+      'id, status, quotation_id, order_number, customer_name, customer_phone, subtotal, discount, delivery_fee, total, payment_method, notes, order_type, latitude, longitude, discussion_message_id',
     )
     .eq('id', orderId)
     .single();
+
 
   if (!order || orderErr) {
     await answerCallback(token, callback.id, '⚠️ الطلب غير موجود', true);
@@ -127,7 +131,6 @@ export async function handleWfCallback(
     await handleUndo(token, chatId, callback, orderId, prevStatus, userName);
     return;
   }
-
   // ── 1.6 Special action: abort (cancel confirmation) ──
   if (isAbort) {
     const messageText = prepareOrderMessageText(
@@ -136,10 +139,17 @@ export async function handleWfCallback(
       order.latitude,
       order.longitude,
     );
-    const restoredButtons = appOrderButtonsForMessage(orderId, order.status, order.order_type, messageText);
+    const restoredButtons = appOrderButtonsForMessage(
+      orderId,
+      order.status,
+      order.order_type,
+      messageText,
+      order.discussion_message_id ? getMessageLink(chatId, order.discussion_message_id) : null
+    );
     await handleAbort(token, chatId, callback.id, messageId, messageText, restoredButtons);
     return;
   }
+
 
   // ── 2. Validate action against state machine ──
   const currentActions = APP_ACTIONS[order.status];
@@ -338,12 +348,18 @@ export async function handleWfCallback(
     const hasHeader = originalText.includes('سجل الحركات');
     const headerBlock = hasHeader ? '' : '\n\n📋 <b>سجل الحركات:</b>';
     const trail = `${headerBlock}\n${actionDisplay.emoji} <b>${actionDisplay.label}</b> (بواسطة: ${userName})`;
+    let discussionLink: string | null = null;
+    if (order.discussion_message_id) {
+      discussionLink = getMessageLink(chatId, order.discussion_message_id);
+    }
     let nextButtons = appOrderButtonsForMessage(
       orderId,
       actionDef.nextStatus,
       order.order_type,
       originalText + trail,
+      discussionLink,
     );
+
 
     // Append Undo button if eligible
     if (['reserve', 'prepare', 'deliver'].includes(action) && actionDef.nextStatus !== order.status) {
@@ -488,12 +504,47 @@ async function handleApprove(
 
   // Send to all groups
   for (const gId of env.groupIds()) {
-    await sendMessage(token, gId, groupText, {
+    const res = await sendMessage(token, gId, groupText, {
       reply_markup:
         teamButtons.length > 0
           ? { inline_keyboard: teamButtons }
           : undefined,
     });
+
+    const discThreadId = env.discussionThreadId();
+    if (res && res.ok && discThreadId) {
+      const originalMessageId = res.result.message_id;
+      const originalMessageLink = getMessageLink(gId, originalMessageId);
+
+      const discMsgText = `\
+💬 <b>نقاش حول الطلب (#${order.order_number || order.id})</b>
+👤 <b>العميل:</b> ${order.customer_name}
+
+🔙 <a href="${originalMessageLink}">انتقال للطلب الأصلي</a>`.trim();
+
+      const discRes = await sendMessage(token, gId, discMsgText, {
+        message_thread_id: discThreadId,
+      });
+
+      if (discRes && discRes.ok) {
+        const discussionMessageId = discRes.result.message_id;
+        const discussionLink = getMessageLink(gId, discussionMessageId);
+
+        try {
+          await jouda
+            .from('customer_orders')
+            .update({ discussion_message_id: discussionMessageId })
+            .eq('id', order.id);
+        } catch (dbErr) {
+          console.warn('Failed to save discussion_message_id for app order:', dbErr);
+        }
+
+        const updatedButtons = appOrderButtons(order.id, 'confirmed', order.order_type, discussionLink);
+        await editMessage(token, gId, originalMessageId, groupText, {
+          reply_markup: { inline_keyboard: updatedButtons },
+        });
+      }
+    }
   }
 
   // WhatsApp notification for customer (Temporarily Disabled)
@@ -625,9 +676,10 @@ async function handleUndo(
   // 2. Fetch order to verify
   const { data: order, error: orderErr } = await jouda
     .from('customer_orders')
-    .select('id, status, quotation_id, order_type, latitude, longitude')
+    .select('id, status, quotation_id, order_type, latitude, longitude, discussion_message_id')
     .eq('id', orderId)
     .single();
+
 
   if (!order || orderErr) {
     await answerCallback(token, callback.id, '⚠️ الطلب غير موجود', true);
@@ -694,7 +746,14 @@ async function handleUndo(
     );
 
     // Generate original buttons for the restored status
-    const restoredButtons = appOrderButtonsForMessage(orderId, prevStatus, order.order_type, newText);
+    const restoredButtons = appOrderButtonsForMessage(
+      orderId,
+      prevStatus,
+      order.order_type,
+      newText,
+      order.discussion_message_id ? getMessageLink(chatId, order.discussion_message_id) : null
+    );
+
 
     await editMessage(token, chatId, messageId, newText, {
       reply_markup: restoredButtons.length > 0 ? { inline_keyboard: restoredButtons } : undefined,
