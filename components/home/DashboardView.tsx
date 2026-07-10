@@ -1,25 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HomePackagesCarousel } from './HomePackagesCarousel';
 import { TrendingRecipes } from '../blog/TrendingRecipes';
 import { KnowledgeHub } from '../../pages/KnowledgeHub';
 import { ScanLine, ChefHat, Store } from 'lucide-react';
 
-const OPEN_SCANNER_EVENT = 'open-scanner';
-
+// #21: Updated greeting buckets — more natural Arabic expressions
 const getGreeting = () => {
   const hour = new Date().getHours();
+  if (hour < 6)  return ['ليلتك سعيدة', '🌙'];
   if (hour < 12) return ['صباح الخير', '☀️'];
-  if (hour < 16) return ['نهارك سعيد', '🌤️'];
-  return ['مساء الخير', '🌙'];
+  if (hour < 14) return ['مرحباً', '🌤️'];
+  if (hour < 18) return ['مساء الخير', '🌅'];
+  return ['مساء النور', '🌙'];
 };
 
-export const DashboardView: React.FC = () => {
+interface DashboardViewProps {
+  // #25: prop instead of window.dispatchEvent
+  onOpenScanner: () => void;
+}
+
+export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) => {
   const navigate = useNavigate();
 
   const [greeting, icon] = getGreeting();
-  const storedName = localStorage.getItem('jouda_customer_name');
-  const userName = storedName?.split(' ')[0] ?? '';
+
+  // #11: useState initializer so it reads localStorage once (not on every render)
+  // and is reactive to changes within the same tab
+  const [userName] = useState<string>(() => {
+    const stored = localStorage.getItem('jouda_customer_name');
+    return stored?.split(' ')[0] ?? '';
+  });
 
   return (
     <div className="animate-fade-in flex flex-col">
@@ -37,7 +48,7 @@ export const DashboardView: React.FC = () => {
       {/* Smart Lifesaver Bar (Scanner Trigger) */}
       <div className="px-4 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
         <button
-          onClick={() => window.dispatchEvent(new Event(OPEN_SCANNER_EVENT))}
+          onClick={onOpenScanner}
           className="w-full relative group bg-white dark:bg-gray-900 rounded-[1.25rem] p-3.5 flex items-center gap-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 transition-all active:scale-[0.98] overflow-hidden"
         >
           {/* Animated Background Gradient (Subtle) */}
@@ -58,7 +69,7 @@ export const DashboardView: React.FC = () => {
 
       {/* Minimal Categories (Bento Style) - Horizontal Layout */}
       <div className="grid grid-cols-2 gap-3 mb-6 px-4">
-        {/* متجر جوده - الآن في اليمين */}
+        {/* متجر جوده */}
         <button
           onClick={() => navigate('/products')}
           className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-100 dark:border-gray-800 text-right px-2.5 py-3 sm:p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2 sm:gap-3 w-full"
@@ -72,7 +83,7 @@ export const DashboardView: React.FC = () => {
           </div>
         </button>
 
-        {/* مخبز جوده - الآن في اليسار */}
+        {/* وصفات جوده */}
         <button
           onClick={() => navigate('/recipes')}
           className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-100 dark:border-gray-800 text-right px-2.5 py-3 sm:p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2 sm:gap-3 w-full"

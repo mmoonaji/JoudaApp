@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, fetchProductsFromSupabase } from '../../services/supabaseService';
-import { getCachedProducts } from '../../services/db';
+import { getCachedProducts, getCacheAge } from '../../services/db';
 import { ProductDetailsModal } from '../modals/ProductDetailsModal';
 import { calculatePackageSavings } from '../products/utils';
 
@@ -21,6 +21,12 @@ export const HomePackagesCarousel: React.FC = () => {
         if (cached && cached.length > 0) {
           setProducts(cached);
           setLoading(false);
+
+          // #10: Skip network fetch if cache is fresher than 5 minutes
+          const cacheAge = await getCacheAge('products');
+          if (cacheAge < 5 * 60 * 1000) {
+            return;
+          }
         }
         const fresh = await fetchProductsFromSupabase();
         setProducts(fresh);
@@ -94,7 +100,22 @@ export const HomePackagesCarousel: React.FC = () => {
     return <div className="mx-4 mb-6 h-[130px] bg-gray-100 dark:bg-gray-800 rounded-[1.5rem] animate-pulse" />;
   }
   
-  if (featuredPackages.length === 0) return null;
+  if (featuredPackages.length === 0) {
+    // #23: Empty state instead of silent null — user knows what's happening
+    return (
+      <div className="px-4 mb-6">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 mb-4">
+          <span className="text-brand-600">🎁</span>
+          <span>عروض التوفير</span>
+        </h3>
+        <div className="h-[130px] bg-gray-50 dark:bg-gray-800/50 rounded-[1.5rem] border border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center gap-2">
+          <span className="text-2xl">🛒</span>
+          <p className="text-sm font-bold text-gray-400 dark:text-gray-500">لا تتوفر عروض حالياً</p>
+          <a href="/products" className="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline">تصفح جميع المنتجات</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -149,10 +170,14 @@ export const HomePackagesCarousel: React.FC = () => {
                 {/* Image Side (Left) */}
                 <div className="w-[84px] h-[84px] shrink-0 relative flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100/50 dark:border-gray-700 overflow-hidden shadow-inner">
                   {pkg.image ? (
-                    <img 
-                      src={pkg.image} 
-                      alt={pkg.name} 
-                      className="w-full h-full object-cover animate-fade-in" 
+                    <img
+                      src={pkg.image}
+                      alt={pkg.name}
+                      loading="lazy"
+                      decoding="async"
+                      width={84}
+                      height={84}
+                      className="w-full h-full object-cover animate-fade-in"
                     />
                   ) : (
                     <span className="text-2xl">🎁</span>

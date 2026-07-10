@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { STORE_CONFIG } from '../constants';
 import { submitOrderToSupabase } from '../services/supabaseService';
 import { saveCartToDB, loadCartFromDB, addPendingOrder, getPendingOrdersCount, saveCompletedOrder, getCachedProducts } from '../services/db';
@@ -52,6 +52,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState<string | null>(null);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  // #13: ref to skip first IDB save (items start as [] before load)
+  const isFirstRender = useRef(true);
 
   // Load cart from IndexedDB on mount
   useEffect(() => {
@@ -88,7 +90,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   // Save cart to IndexedDB whenever it changes
+  // #13: Skip first render (items = [] before IDB load completes)
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (items.length === 0) return; // Don't write empty cart unnecessarily
     const saveCart = async () => {
       try {
         await saveCartToDB(items);
@@ -100,13 +108,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [items]);
 
   // Helper to trigger notification
-  const triggerNotification = (name: string) => {
+  const triggerNotification = useCallback((name: string) => {
     setLastAddedItem(name);
     // Reset after a short delay so the same item can trigger it again later if needed
     setTimeout(() => setLastAddedItem(null), 2000);
-  };
+  }, []);
 
-  const addToCart = (name: string, source: 'store' | 'bakery' = 'store', barcode?: string, price?: string) => {
+  // #14: crypto.randomUUID() instead of Math.random() for safe unique IDs
+  const newId = () => crypto.randomUUID();
+
+  const addToCart = useCallback((name: string, source: 'store' | 'bakery' = 'store', barcode?: string, price?: string) => {
     setItems((prev) => {
       const existing = prev.find((item) => item.name === name);
       if (existing) {
@@ -114,13 +125,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           item.name === name ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { id: Date.now().toString() + Math.random(), name, barcode, price, quantity: 1, source }];
+      return [...prev, { id: newId(), name, barcode, price, quantity: 1, source }];
     });
     triggerNotification(name);
     try { navigator.vibrate?.(15); } catch {}
-  };
+  }, [triggerNotification]);
 
-  const addToCartWithBarcode = (item: { name: string; barcode: string; price?: string; source?: 'store' | 'bakery' }) => {
+  const addToCartWithBarcode = useCallback((item: { name: string; barcode: string; price?: string; source?: 'store' | 'bakery' }) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.name === item.name);
       if (existing) {
@@ -129,7 +140,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         );
       }
       return [...prev, {
-        id: Date.now().toString() + Math.random(),
+        id: newId(),
         name: item.name,
         barcode: item.barcode,
         price: item.price,
@@ -139,9 +150,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     triggerNotification(item.name);
     try { navigator.vibrate?.(15); } catch {}
-  };
+  }, [triggerNotification]);
 
-  const addMultipleToCart = (names: string[], source: 'store' | 'bakery' = 'store') => {
+  const addMultipleToCart = useCallback((names: string[], source: 'store' | 'bakery' = 'store') => {
     setItems((prev) => {
       let newItems = [...prev];
       names.forEach(name => {
@@ -154,7 +165,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           };
         } else {
           newItems.push({ 
-            id: Date.now().toString() + Math.random(), 
+            id: newId(), 
             name: name, 
             quantity: 1,
             source
@@ -164,10 +175,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return newItems;
     });
     // Trigger notification for the first item or a generic message
-    if (names.length > 0) triggerNotification("مجموعة منتجات");
-  };
+    if (names.length > 0) triggerNotification('مجموعة منتجات');
+  }, [triggerNotification]);
 
-  const decreaseQuantity = (id: string) => {
+  const decreaseQuantity = useCallback((id: string) => {
     setItems((prev) => {
       return prev.map(item => {
         if (item.id === id) {
@@ -176,9 +187,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return item;
       }).filter(item => item.quantity > 0);
     });
-  };
+  }, []);
 
-  const decreaseQuantityByName = (name: string) => {
+  const decreaseQuantityByName = useCallback((name: string) => {
     setItems((prev) => {
       return prev.map(item => {
         if (item.name === name) {
@@ -187,37 +198,39 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return item;
       }).filter(item => item.quantity > 0);
     });
-  };
+  }, []);
 
-  const setItemQuantity = (id: string, quantity: number) => {
+  const setItemQuantity = useCallback((id: string, quantity: number) => {
     const normalizedQuantity = Math.max(0, Math.floor(quantity));
     setItems((prev) => {
       if (normalizedQuantity === 0) {
         return prev.filter((item) => item.id !== id);
       }
-
       return prev.map((item) => (
         item.id === id ? { ...item, quantity: normalizedQuantity } : item
       ));
     });
-  };
+  }, []);
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = useCallback((id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
-  };
+  }, []);
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items]
+  );
 
-  const getItemQuantity = (name: string) => {
+  const getItemQuantity = useCallback((name: string) => {
     const item = items.find(i => i.name === name);
     return item ? item.quantity : 0;
-  };
+  }, [items]);
 
-  const sendOrderToWhatsApp = (name?: string, address?: string, notes?: string) => {
+  const sendOrderToWhatsApp = useCallback((name?: string, address?: string, notes?: string) => {
     if (items.length === 0) return;
 
     const storeItems = items.filter(i => i.source === 'store' || !i.source);
@@ -259,9 +272,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
     
     window.open(url, '_blank');
-  };
+  }, [items]);
 
-  const submitOrderToSystem = async (payload: {
+  const submitOrderToSystem = useCallback(async (payload: {
     customer_name: string;
     customer_phone: string;
     customer_address?: string;
@@ -278,21 +291,24 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, message: 'السلة فارغة' };
     }
 
-    // Check if we need to resolve missing barcodes/prices (e.g. added from recipes)
+    // #15: Skip IDB scan if all items already have barcodes
     let resolvedItems = items;
-    try {
-      const cachedProducts = await getCachedProducts();
-      resolvedItems = items.map(item => {
-        if (item.barcode) return item;
-        const matchedProduct = cachedProducts.find(p => p.name === item.name);
-        return {
-          ...item,
-          barcode: matchedProduct?.barcode || '',
-          price: item.price || matchedProduct?.price?.toString() || '0'
-        };
-      });
-    } catch (e) {
-      console.warn('Failed to lookup missing barcodes', e);
+    const allHaveBarcodes = items.every(item => item.barcode);
+    if (!allHaveBarcodes) {
+      try {
+        const cachedProducts = await getCachedProducts();
+        resolvedItems = items.map(item => {
+          if (item.barcode) return item;
+          const matchedProduct = cachedProducts.find(p => p.name === item.name);
+          return {
+            ...item,
+            barcode: matchedProduct?.barcode || '',
+            price: item.price || matchedProduct?.price?.toString() || '0'
+          };
+        });
+      } catch (e) {
+        console.warn('Failed to lookup missing barcodes', e);
+      }
     }
 
     // Filter out items without barcode (fallback items)
@@ -365,30 +381,48 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     return result;
-  };
+  }, [items, clearCart]);
+
+  // #4: useMemo for context value — prevents all consumers from re-rendering on unrelated state changes
+  const contextValue = useMemo<CartContextType>(() => ({
+    items,
+    addToCart,
+    addToCartWithBarcode,
+    addMultipleToCart,
+    decreaseQuantity,
+    decreaseQuantityByName,
+    setItemQuantity,
+    removeFromCart,
+    clearCart,
+    isCartOpen,
+    setIsCartOpen,
+    sendOrderToWhatsApp,
+    submitOrderToSystem,
+    totalItems,
+    getItemQuantity,
+    lastAddedItem,
+    pendingOrdersCount,
+  }), [
+    items,
+    addToCart,
+    addToCartWithBarcode,
+    addMultipleToCart,
+    decreaseQuantity,
+    decreaseQuantityByName,
+    setItemQuantity,
+    removeFromCart,
+    clearCart,
+    isCartOpen,
+    sendOrderToWhatsApp,
+    submitOrderToSystem,
+    totalItems,
+    getItemQuantity,
+    lastAddedItem,
+    pendingOrdersCount,
+  ]);
 
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        addToCart,
-        addToCartWithBarcode,
-        addMultipleToCart,
-        decreaseQuantity,
-        decreaseQuantityByName,
-        setItemQuantity,
-        removeFromCart,
-        clearCart,
-        isCartOpen,
-        setIsCartOpen,
-        sendOrderToWhatsApp,
-        submitOrderToSystem,
-        totalItems,
-        getItemQuantity,
-        lastAddedItem,
-        pendingOrdersCount,
-      }}
-    >
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );

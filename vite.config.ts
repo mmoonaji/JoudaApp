@@ -8,7 +8,6 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
 
   return {
-
     server: {
       host: true,
     },
@@ -16,10 +15,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'react-vendor':    ['react', 'react-dom', 'react-router-dom'],
             'supabase-vendor': ['@supabase/supabase-js'],
-            'map-vendor': ['leaflet', 'react-leaflet'],
-            'ui-vendor': ['lucide-react', 'lottie-react']
+            'map-vendor':      ['leaflet', 'react-leaflet'],
+            'ui-vendor':       ['lucide-react'],
+            'lottie-vendor':   ['lottie-react'], // #9: separated so pages without Lottie don't load it
           }
         }
       }
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
         },
         includeAssets: ['apple-touch-icon.png'],
         manifest: {
-          id: '/', 
+          id: '/',
           name: 'Jouda World | عالم جوده',
           short_name: 'Jouda',
           description: 'منصتك المتكاملة لحياة خالية من الجلوتين. تسوق، اطبخ، واستمتع.',
@@ -44,17 +44,17 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: '/pwa-192x192.png', 
+              src: '/pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: '/pwa-512x512.png', 
+              src: '/pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png'
             },
             {
-              src: '/pwa-512x512.png', 
+              src: '/pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
@@ -79,12 +79,11 @@ export default defineConfig(({ mode }) => {
               }
             },
             {
-              // Strategy for Google Sheets CSV data
               urlPattern: /^https:\/\/docs\.google\.com\/spreadsheets\/.*/i,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'google-sheets-data',
-                networkTimeoutSeconds: 3, 
+                networkTimeoutSeconds: 3,
                 expiration: {
                   maxEntries: 10,
                   maxAgeSeconds: 60 * 60 * 24 // 1 Day

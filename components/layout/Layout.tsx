@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { CartDrawer } from '../cart/CartDrawer';
-import { CartFloatingButton } from '../cart/CartFloatingButton';
 
 import { InstallPrompt } from '../ui/InstallPrompt';
 import { useCart } from '../../contexts/CartContext';

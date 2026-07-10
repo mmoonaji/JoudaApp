@@ -24,7 +24,7 @@ export const BottomNav: React.FC = () => {
                 <div key={tab.id} className="relative flex flex-col items-center justify-center -translate-y-4 z-50">
                   <NavLink
                     to={tab.path}
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    onClick={() => { if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                     className="w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-700 dark:from-brand-600 dark:to-brand-800 shadow-[0_8px_20px_rgba(211,47,47,0.3)] text-white hover:scale-105 active:scale-95 transition-all relative"
                     aria-label="صحتك"
                   >
@@ -47,7 +47,7 @@ export const BottomNav: React.FC = () => {
                 className={`flex flex-col items-center justify-center w-16 py-2 gap-1.5 transition-all duration-300 ${
                   isActive 
                     ? 'text-brand-600 dark:text-brand-400 font-extrabold' 
-                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
                 <div className={`transition-all ${isActive ? 'translate-y-[-2px]' : ''}`}>

@@ -48,13 +48,15 @@ const MaintenancePage: React.FC<{ message: string; onSecretClick: () => void }> 
   return (
     <div className="fixed inset-0 z-[200] bg-gray-900 flex items-center justify-center p-6">
       <div className="text-center max-w-md">
-        <div 
+        {/* #29: changed from <div onClick> to <button> for keyboard accessibility */}
+        <button
+          type="button"
           onClick={handleWrenchClick}
+          aria-label="فتح لوحة الإدارة (اضغط 3 مرات)"
           className="w-20 h-20 bg-gray-800 rounded-3xl flex items-center justify-center mx-auto mb-6 cursor-pointer select-none active:scale-95 transition-transform"
-          title=""
         >
           <Wrench className="w-10 h-10 text-brand-600" />
-        </div>
+        </button>
         <h1 className="text-2xl font-black text-white mb-3">
           تحت الصيانة
         </h1>
@@ -142,20 +144,46 @@ const AppContent: React.FC = () => {
 
     checkMaintenance();
 
-    const subscription = supabase
-      .channel('app_settings_changes')
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
-        (payload) => {
-          const newData = payload.new as any;
-          setMaintenanceMode(newData.maintenance_mode || false);
-          setMaintenanceMessage(newData.maintenance_message || '');
-        }
-      )
-      .subscribe();
+    // #6: subscribe to realtime, pause when app goes to background to save battery
+    let subscription: ReturnType<typeof supabase.channel> | null = null;
+
+    const startSubscription = () => {
+      subscription = supabase
+        .channel('app_settings_changes')
+        .on('postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
+          (payload) => {
+            const newData = payload.new as any;
+            setMaintenanceMode(newData.maintenance_mode || false);
+            setMaintenanceMessage(newData.maintenance_message || '');
+          }
+        )
+        .subscribe();
+    };
+
+    const stopSubscription = () => {
+      if (subscription) {
+        subscription.unsubscribe();
+        subscription = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopSubscription();
+      } else {
+        startSubscription();
+        // Re-check maintenance in case it changed while backgrounded
+        checkMaintenance();
+      }
+    };
+
+    startSubscription();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      subscription.unsubscribe();
+      stopSubscription();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -309,7 +337,8 @@ const AppContent: React.FC = () => {
         isAdmin={isAdmin}
         onAdminLogout={handleAdminLogout}
         onLogoClick={() => {
-          if (!isAdmin) navigate('/admin/login');
+          // #16: Logo navigates to home for regular users — no secret admin path
+          // Admin access: use Ctrl+Shift+A or the maintenance page wrench (3 taps)
         }}
       >
         <Suspense fallback={<div className="flex h-full min-h-[50vh] items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full" /></div>}>
