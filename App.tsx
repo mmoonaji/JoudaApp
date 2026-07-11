@@ -337,8 +337,7 @@ const AppContent: React.FC = () => {
         isAdmin={isAdmin}
         onAdminLogout={handleAdminLogout}
         onLogoClick={() => {
-          // #16: Logo navigates to home for regular users — no secret admin path
-          // Admin access: use Ctrl+Shift+A or the maintenance page wrench (3 taps)
+          if (!isAdmin) navigate('/admin/login');
         }}
       >
         <Suspense fallback={<div className="flex h-full min-h-[50vh] items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full" /></div>}>
