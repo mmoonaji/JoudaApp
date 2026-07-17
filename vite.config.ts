@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { handleCatalogRequest, handleMediaRequest, handleOrdersRequest } from './api/proxy'
+import supabaseProxy from './api/supabase'
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
@@ -27,6 +28,32 @@ export default defineConfig(({ mode }) => {
 
         if (req.url.startsWith('/api/media')) {
           handleMediaRequest(req, res, proxyEnv).catch(next);
+          return;
+        }
+
+        if (req.url.startsWith('/api/supabase')) {
+          const headers = new Headers();
+          Object.entries(req.headers).forEach(([key, value]) => {
+            const headerValue = value as string | string[] | undefined;
+            if (Array.isArray(headerValue)) {
+              headerValue.forEach((item) => headers.append(key, item));
+            } else if (headerValue) {
+              headers.set(key, headerValue);
+            }
+          });
+
+          const request = new Request(`http://${req.headers.host || 'localhost'}${req.url}`, {
+            method: req.method,
+            headers,
+            body: req.method === 'GET' || req.method === 'HEAD' ? undefined : (req as any),
+            ...(req.method === 'GET' || req.method === 'HEAD' ? {} : { duplex: 'half' }),
+          } as RequestInit);
+
+          supabaseProxy.fetch(request).then(async (response) => {
+            res.statusCode = response.status;
+            response.headers.forEach((value, key) => res.setHeader(key, value));
+            res.end(Buffer.from(await response.arrayBuffer()));
+          }).catch(next);
           return;
         }
 
