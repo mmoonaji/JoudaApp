@@ -14,13 +14,17 @@ const resolveSupabaseUrl = (env: EnvLike) => {
   return value;
 };
 
+const resolveSupabaseAnonKey = (env: EnvLike) => {
+  const value = readEnv(env, 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY', 'API_KEY');
+  if (!value) throw new Error('Missing SUPABASE_ANON_KEY');
+  return value;
+};
+
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
     status,
     headers: { 'Cache-Control': 'no-store' },
   });
-
-const proxiedBodyAllowed = (method: string) => method !== 'GET' && method !== 'HEAD';
 
 export default {
   async fetch(request: Request) {
@@ -41,11 +45,18 @@ export default {
       headers.delete('host');
       headers.delete('connection');
       headers.delete('content-length');
+      headers.set('apikey', resolveSupabaseAnonKey(process.env));
+      headers.set('authorization', `Bearer ${resolveSupabaseAnonKey(process.env)}`);
+
+      const body =
+        request.method === 'GET' || request.method === 'HEAD'
+          ? undefined
+          : await request.arrayBuffer();
 
       const upstream = await fetch(targetUrl.toString(), {
         method: request.method,
         headers,
-        body: proxiedBodyAllowed(request.method) ? request.body : undefined,
+        body,
         redirect: 'manual',
       });
 
