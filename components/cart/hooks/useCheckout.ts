@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { supabase } from '../../../services/supabaseClient';
 import { calculateDistance, calculateDeliveryFeeDetails } from '../../../utils/distanceUtils';
+import { fetchPublicSettingsFromSupabase } from '../../../services/supabaseService';
 
 const MIN_CUSTOMER_DISTANCE_KM = 0.2;
 
@@ -43,8 +43,8 @@ export const useCheckout = (
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data, error } = await supabase.from('app_settings_public').select('store_latitude, store_longitude, delivery_price_per_km').eq('id', 1).single();
-        if (data && !error) {
+        const data = await fetchPublicSettingsFromSupabase();
+        if (data) {
           setStoreLat(data.store_latitude ?? 15.3980555);
           setStoreLng(data.store_longitude ?? 44.2094444);
           setPricePerKm(data.delivery_price_per_km ?? 150);

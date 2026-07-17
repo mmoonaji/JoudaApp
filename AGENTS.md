@@ -127,7 +127,9 @@ Inventory invoices INSERT
 ### طلب تطبيق Jouda
 
 ```text
-Frontend → submit-order
+Frontend → Vercel `/api/catalog` / `/api/media` / `/api/orders` proxy
+→ بيانات العرض + الصور + إرسال الطلب
+→ submit-order
 → Inventory RPC: create_quotation
 → JoudaApp: customer_orders + order_items باستخدام service_role
 → إشعار تيليجرام للمدير مع wf_approve_
@@ -207,7 +209,9 @@ submitted → approve → confirmed → reserve → reserved → prepare → pre
 
 الإلغاء متاح من `confirmed`, `reserved`, `preparing`. العكس الإداري متاح بعد التسليم/الدفع/الإيداع حسب `workflow.ts`.
 
-في طلبات التطبيق، `reserved` لا يعني حجز مندوب داخل Inventory حالياً. معناه التشغيلي أن عضو الفريق/المندوب استلم مسؤولية الطلب من تيليجرام. إسناد المندوب داخل Inventory مؤجل، وكود `assign_invoice_to_collector` في `wf-callbacks.ts` يبقى معطلاً حتى يقرر المشروع تفعيله.
+في طلبات التطبيق، `reserved` يعني أن عضو الفريق/المندوب استلم مسؤولية الطلب من تيليجرام. إذا كان الطلب كاش وله فاتورة Inventory، زر الاستلام يستدعي `assign_invoice_to_collector` باستخدام `TELEGRAM_DRIVER_MAP` وينشئ عهدة التحصيل. الطلبات غير الكاش لا تحتاج عهدة محصل.
+
+أزرار الإيداع للكاش تستدعي `settle_single_invoice` قبل تغيير الحالة إلى `deposited`/`deposit`. إذا لم تكن الفاتورة مسندة لمحصل أو لم تكن قابلة للتسوية، يجب أن يفشل الزر ولا يعلّم الطلب كمودع. غير الكاش يغير حالة workflow فقط ولا يدخل في عهد المحصلين.
 
 أزرار `wf_*` تتغير حسب `customer_orders.order_type`:
 
@@ -266,7 +270,15 @@ Callback data:
 |---|---|
 | `VITE_SUPABASE_URL` | رابط JoudaApp |
 | `VITE_SUPABASE_ANON_KEY` | anon key للعميل |
+| `VITE_SUPABASE_ANON` | اسم legacy موجود محلياً لنفس anon key؛ يدعمه proxy للتوافق |
 | `VITE_TOMTOM_API_KEY` | مفتاح TomTom Search API لبحث موقع العميل في خريطة التوصيل |
+
+### Vercel API
+
+| المتغير | الدور |
+|---|---|
+| `SUPABASE_URL` | يستخدمه `/api/orders` لاستدعاء `submit-order` من السيرفر |
+| `SUPABASE_ANON_KEY` | يستخدمه `/api/orders` كـ JWT مطلوب لـ `submit-order`; يدعم أيضاً `VITE_SUPABASE_ANON_KEY` و`VITE_SUPABASE_ANON` و`API_KEY` للتوافق؛ لا تستخدم `service_role` هنا |
 
 ### Edge Functions
 

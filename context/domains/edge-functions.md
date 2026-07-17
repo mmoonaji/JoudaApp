@@ -4,6 +4,9 @@
 
 | Function | Path | Main Responsibility |
 |---|---|---|
+| Vercel `/api/catalog` | `api/catalog.ts` | Server-side proxy for public data reads |
+| Vercel `/api/media` | `api/media.ts` | Server-side proxy for Supabase Storage media |
+| Vercel `/api/orders` | `api/orders.ts` | Server-side proxy from checkout to `submit-order` |
 | `telegram-bot` | `supabase/functions/telegram-bot/` | Telegram commands/callbacks and Inventory webhooks |
 | `submit-order` | `supabase/functions/submit-order/index.ts` | Create Inventory quotation and JoudaApp order |
 | `sync-products` | `supabase/functions/sync-products/index.ts` | Sync Inventory products to JoudaApp |
@@ -13,7 +16,9 @@
 ## Authentication
 
 - `telegram-bot`: `verify_jwt=false`; Telegram updates pass without JWT. Non-Telegram webhook/cron requests require `x-webhook-secret`.
+- Vercel `/api/catalog` and `/api/media`: proxy only public reads; they should use anon access and never expose service role.
 - `submit-order`: `verify_jwt=true` in `supabase/config.toml`.
+- Vercel `/api/orders`: uses `SUPABASE_ANON_KEY` server-side to call `submit-order`; do not configure service role in Vercel for this route.
 - `sync-products`: `verify_jwt=false`; checks `WEBHOOK_SECRET`.
 - `update-inventory`: validates the Authorization JWT in code and allows `joudafood@gmail.com`; it is not listed in the current `supabase/config.toml`, so verify its deployment JWT setting in Supabase Dashboard before changing exposure.
 - `analyze-product`: reads `GEMINI_API_KEY`; it is not listed in the current `supabase/config.toml`, so verify its deployment JWT setting in Supabase Dashboard before changing exposure.
@@ -36,7 +41,9 @@
 - Keep callback data under 64 characters.
 - Use `fmtDate()` for Telegram dates.
 - Use service role only inside server-side functions.
-- In app order callbacks, `reserved` means the team/courier accepted the order in Telegram. Do not re-enable Inventory collector assignment until the project explicitly decides to wire driver assignment into Inventory.
+- In app order callbacks, `reserved` means the team/courier accepted the order in Telegram. For CASH orders with an Inventory invoice, reserve now calls `assign_invoice_to_collector` through `TELEGRAM_DRIVER_MAP`; missing driver mapping blocks the button.
+- CASH deposit buttons must call `settle_single_invoice` before marking the workflow deposited. Non-CASH deposits only mark workflow status and do not enter collector custody.
+- Inventory invoice reversal webhooks must keep JoudaApp `customer_orders` in sync with cancelled status.
 - `wf_*` button labels are order-type aware: delivery orders use delivery wording, while `shipping` orders use shipping-company wording.
 - When adding env vars, update `AGENTS.md` and this file.
 

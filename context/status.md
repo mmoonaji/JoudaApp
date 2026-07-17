@@ -37,6 +37,9 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 | 2026-06-30 | Product availability labels clarified | Admin product labels now distinguish Inventory active state, app hiding, and stock tracking to reduce confusion around always-available products |
 | 2026-06-30 | Checkout location search moved to TomTom | `MapLocationPicker` now uses TomTom Search API for Sana'a location search with Photon as fallback |
 | 2026-06-30 | Checkout submit button explains missing fields | Disabled-looking order submit now remains tappable and tells customers exactly which delivery fields are incomplete |
+| 2026-07-13 | Telegram cash custody workflow restored | CASH reserve buttons now assign collectors via `TELEGRAM_DRIVER_MAP`, deposit buttons call `settle_single_invoice`, Inventory reversal webhook sync is active, and `/money` surfaces unassigned/deposit-not-settled cash |
+| 2026-07-16 | Checkout order proxy added | Frontend order submission now uses Vercel `/api/orders`, which forwards to `submit-order` server-side to reduce customer-side `supabase.co` blocking impact |
+| 2026-07-16 | Catalog/media proxy added | Public products, settings, banners, articles, recipes, FAQ, and storage images now flow through Vercel `/api/catalog` and `/api/media` instead of browser-side Supabase reads |
 
 ## Known Risks
 
@@ -44,7 +47,10 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 - RLS/live database state may differ from checked-in migrations. Verify live Supabase state before sensitive database changes.
 - `ALLOWED_ORIGIN` controls CORS strictness; if missing, Edge Functions fall back to `*`.
 - Gemini key rotation still requires a manual Google AI Studio key replacement and Supabase `GEMINI_API_KEY` secret update.
-- Inventory collector assignment from Telegram remains intentionally disabled; do not treat `reserved` as an Inventory driver assignment until that workflow is designed.
+- Telegram cash custody now depends on a complete `TELEGRAM_DRIVER_MAP`; unmapped Telegram users cannot reserve CASH orders or invoices.
+- Historical Telegram orders before 2026-07-13 may still have `deposited`/`deposit` workflow status without `collector_id` or `is_settled=true`; repair requires identifying the real collector before backfilling.
+- Vercel `/api/orders` requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` in Vercel env; missing values make checkout submissions fail with a proxy error.
+- Vercel `/api/catalog` and `/api/media` require the same Supabase env values and will fail closed if the project URL or anon key is missing.
 
 ## Next Steps
 
@@ -54,4 +60,4 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 ---
 
-Last updated: 2026-06-27 by Codex.
+Last updated: 2026-07-16 by Codex.

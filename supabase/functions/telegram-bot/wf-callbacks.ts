@@ -10,7 +10,7 @@ import { answerCallback, editMessage, sendMessage, getMessageLink } from './tele
 import { getClients } from './db.ts';
 import { env, isAdmin, getInventoryUserId } from './config.ts';
 import { APP_ACTIONS, appOrderButtons, APP_TO_INV_STATUS_MAP, getActionDisplay, isShippingOrder } from './workflow.ts';
-import { fmtDate, whatsappButton } from './format.ts';
+import { whatsappButton } from './format.ts';
 import { parseCallbackData, handleAbort, requireConfirmation } from './confirmations.ts';
 
 function orderTypeLabel(orderType?: string | null): string {
@@ -93,6 +93,78 @@ function appOrderButtonsForMessage(
     return withoutReserveButton(buttons);
   }
   return buttons;
+}
+
+function isCashPayment(paymentMethod?: string | null): boolean {
+  return paymentMethod === 'CASH';
+}
+
+async function assignCashOrderToCollector(
+  token: string,
+  callbackId: string,
+  inventory: any,
+  order: any,
+  telegramUserId: string,
+): Promise<boolean> {
+  if (!order.quotation_id || !isCashPayment(order.payment_method)) return true;
+
+  const inventoryUserId = getInventoryUserId(telegramUserId);
+  if (!inventoryUserId) {
+    await answerCallback(
+      token,
+      callbackId,
+      `⚠️ لا يمكنك استلام طلب كاش: حسابك (${telegramUserId}) غير مربوط بالمخزون في TELEGRAM_DRIVER_MAP`,
+      true,
+    );
+    return false;
+  }
+
+  const { data, error } = await inventory.rpc('assign_invoice_to_collector', {
+    p_invoice_id: order.quotation_id,
+    p_collector_id: inventoryUserId,
+    p_actor_user_id: env.systemUserId(),
+  });
+
+  if (error || (data && data.success === false)) {
+    const errMsg = error?.message || data?.error || 'Unknown error';
+    await answerCallback(
+      token,
+      callbackId,
+      `⚠️ لم يتم ربط العهدة بالمندوب: ${errMsg}`,
+      true,
+    );
+    return false;
+  }
+
+  return true;
+}
+
+async function settleCashOrder(
+  token: string,
+  callbackId: string,
+  inventory: any,
+  order: any,
+): Promise<boolean> {
+  if (!order.quotation_id || !isCashPayment(order.payment_method)) return true;
+
+  const { data: settleResult, error: settleErr } = await inventory.rpc('settle_single_invoice', {
+    p_invoice_id: order.quotation_id,
+    p_actor_user_id: env.systemUserId(),
+    p_idempotency_key: `settle_${order.quotation_id}`,
+  });
+
+  const settleData = settleResult as any;
+  if (settleErr || (settleData && settleData.success === false)) {
+    await answerCallback(
+      token,
+      callbackId,
+      `فشل تسجيل التوريد في المخزون: ${settleErr?.message || settleData?.error || 'خطأ غير معروف'}`,
+      true,
+    );
+    return false;
+  }
+
+  return true;
 }
 
 
@@ -200,17 +272,17 @@ export async function handleWfCallback(
     return;
   }
 
-  // ── 5. Cancel → reverse inventory if stock was deducted ──
+  // ── 5. Cancel/reverse → reverse inventory if stock was deducted ──
   if (
-    action === 'cancel' &&
-    ['confirmed', 'reserved', 'preparing'].includes(order.status) &&
+    ['cancel', 'reverse'].includes(action) &&
+    ['confirmed', 'reserved', 'preparing', 'delivered', 'paid', 'deposited'].includes(order.status) &&
     order.quotation_id
   ) {
     const suid = env.systemUserId();
     const { error: reverseErr } = await inventory.rpc('reverse_invoice', {
       p_invoice_id: order.quotation_id,
       p_actor_user_id: suid,
-      p_reason: 'إلغاء طلب تطبيق من تليجرام',
+      p_reason: action === 'reverse' ? 'عكس طلب تطبيق من تليجرام' : 'إلغاء طلب تطبيق من تليجرام',
       p_idempotency_key: `rev_${order.quotation_id}`,
     });
     if (reverseErr) {
@@ -224,86 +296,35 @@ export async function handleWfCallback(
     }
   }
 
-  // ── 5.5 Deposit → settle invoice via RPC (creates settlement_batch + wallet entry) ──
-  // TEMPORARILY DISABLED PER USER REQUEST (2026-06-25)
-  /*
-  if (action === 'deposit' && order.quotation_id) {
-    const { data: settleResult, error: settleErr } = await inventory.rpc('settle_single_invoice', {
-      p_invoice_id: order.quotation_id,
-      p_actor_user_id: env.systemUserId(),
-      p_idempotency_key: `settle_${order.quotation_id}`,
-    });
-    if (settleErr) {
-      await answerCallback(
-        token,
-        callback.id,
-        `فشل تسجيل التوريد في المخزون: ${settleErr.message}`,
-        true,
-      );
-      return;
-    }
-    const settleData = settleResult as any;
-    if (settleData && settleData.success === false) {
-      await answerCallback(
-        token,
-        callback.id,
-        `فشل تسجيل التوريد: ${settleData.error || 'خطأ غير معروف'}`,
-        true,
-      );
-      return;
-    }
+  // ── 5.5 Reserve → assign cash invoice to collector and create COLLECTION entry ──
+  if (action === 'reserve') {
+    const assigned = await assignCashOrderToCollector(
+      token,
+      callback.id,
+      inventory,
+      order,
+      userId,
+    );
+    if (!assigned) return;
   }
-  */
 
-  // ── 5.6 Invoice Assignment (Driver Mapping) — reserve only ──
-  // TEMPORARILY DISABLED PER USER REQUEST (2026-06-25)
-  // Only assign collector at the 'reserve' step. Prepare/deliver can be done by anyone.
-  /*
-  if (action === 'reserve' && order.quotation_id) {
-    const inventoryUserId = getInventoryUserId(userId);
-    if (inventoryUserId) {
-      const { data, error } = await inventory.rpc('assign_invoice_to_collector', {
-        p_invoice_id: order.quotation_id,
-        p_collector_id: inventoryUserId,
-        p_actor_user_id: env.systemUserId(),
-      });
-      if (error || (data && data.success === false)) {
-        const errMsg = error?.message || data?.error || 'Unknown error';
-        console.error('Failed to assign invoice:', errMsg);
-        await answerCallback(token, callback.id, `⚠️ لم يتم إسناد الفاتورة في المخزون: ${errMsg}`, true);
-      } else {
-        // 2. Create COLLECTION entry (since convert_quotation skipped it)
-        const companyAmount = Math.max((order.subtotal || 0) - (order.discount || 0), 0);
-        if (companyAmount > 0 && order.payment_method === 'CASH') {
-          await inventory.from('wallet_ledger').insert({
-            user_id: inventoryUserId,
-            invoice_id: order.quotation_id,
-            entry_type: 'COLLECTION',
-            direction: 'IN',
-            amount: companyAmount,
-            status: 'POSTED',
-            idempotency_key: `wl_tg_${order.quotation_id}`,
-            note: 'تحصيل من طلب تطبيق',
-            created_by: env.systemUserId(),
-          });
-        }
-      }
-    } else {
-      // Not mapped in TELEGRAM_DRIVER_MAP — block reserve since we need a collector
-      await answerCallback(token, callback.id, `⚠️ لا يمكنك حجز الطلب: حسابك (${userId}) غير مربوط بالمخزون في TELEGRAM_DRIVER_MAP`, true);
-      return;
-    }
+  // ── 5.6 Deposit → settle cash invoice via RPC (creates settlement_batch + SETTLEMENT entry) ──
+  if (action === 'deposit') {
+    const settled = await settleCashOrder(token, callback.id, inventory, order);
+    if (!settled) return;
   }
-  */
 
   // ── 6. Update status (optimistic lock) ──
+  const nowIso = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     status: actionDef.nextStatus,
+    workflow_updated_at: nowIso,
   };
+  if (action === 'reserve') updatePayload.workflow_locked_by = userId;
   if (actionDef.nextStatus === 'delivered')
-    updatePayload.delivered_at = new Date().toISOString();
+    updatePayload.delivered_at = nowIso;
   if (actionDef.nextStatus === 'cancelled')
-    updatePayload.cancelled_at = new Date().toISOString();
+    updatePayload.cancelled_at = nowIso;
 
   const { data: updated, error: updateErr } = await jouda
     .from('customer_orders')
@@ -326,7 +347,11 @@ export async function handleWfCallback(
   // ── 6.5 Sync status to Inventory workflow_status ──
   if (order.quotation_id && actionDef.nextStatus !== 'cancelled') {
     if (APP_TO_INV_STATUS_MAP[actionDef.nextStatus]) {
-      await inventory.from('invoices').update({ workflow_status: APP_TO_INV_STATUS_MAP[actionDef.nextStatus] }).eq('id', order.quotation_id);
+      await inventory.from('invoices').update({
+        workflow_status: APP_TO_INV_STATUS_MAP[actionDef.nextStatus],
+        workflow_updated_by: userId,
+        workflow_updated_at: nowIso,
+      }).eq('id', order.quotation_id);
     }
   }
 
@@ -663,6 +688,7 @@ async function handleUndo(
 ) {
   const { jouda, inventory } = getClients();
   const messageId = callback.message?.message_id;
+  const userId = String(callback.from?.id);
 
   // 1. Time Limit Guard
   const editDate = callback.message?.edit_date || callback.message?.date || 0;
@@ -687,7 +713,11 @@ async function handleUndo(
   }
 
   // 3. Revert Status in DB
-  const updatePayload: Record<string, unknown> = { status: prevStatus };
+  const updatePayload: Record<string, unknown> = {
+    status: prevStatus,
+    workflow_updated_at: new Date().toISOString(),
+  };
+  if (prevStatus === 'confirmed') updatePayload.workflow_locked_by = null;
 
   const { data: updated, error: updateErr } = await jouda
     .from('customer_orders')
@@ -705,28 +735,34 @@ async function handleUndo(
   if (order.quotation_id && prevStatus !== 'cancelled') {
     // If we reverted to a status that exists in Inventory
     if (APP_TO_INV_STATUS_MAP[prevStatus]) {
-      await inventory.from('invoices').update({ workflow_status: APP_TO_INV_STATUS_MAP[prevStatus] }).eq('id', order.quotation_id);
+      await inventory.from('invoices').update({
+        workflow_status: APP_TO_INV_STATUS_MAP[prevStatus],
+        workflow_updated_by: userId,
+        workflow_updated_at: new Date().toISOString(),
+      }).eq('id', order.quotation_id);
     } else if (prevStatus === 'confirmed') {
       // 'confirmed' in JoudaApp means it hasn't entered the inventory workflow (pending reserve)
-      await inventory.from('invoices').update({ workflow_status: 'pending' }).eq('id', order.quotation_id);
+      await inventory.from('invoices').update({
+        workflow_status: 'pending',
+        workflow_updated_by: userId,
+        workflow_updated_at: new Date().toISOString(),
+      }).eq('id', order.quotation_id);
     }
   }
 
   // If undoing 'reserve' (reverting to 'confirmed'), clear collector and COLLECTION entry
-  // TEMPORARILY DISABLED PER USER REQUEST (2026-06-25)
-  /*
   if (prevStatus === 'confirmed' && order.quotation_id) {
-    const suid = env.systemUserId();
     await inventory.from('invoices').update({
-      collector_id: null
-    }).eq('id', order.quotation_id);
+      collector_id: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', order.quotation_id).eq('is_settled', false);
     
     await inventory.from('wallet_ledger').delete()
       .eq('invoice_id', order.quotation_id)
       .eq('entry_type', 'COLLECTION')
-      .eq('direction', 'IN');
+      .eq('direction', 'IN')
+      .is('settlement_batch_id', null);
   }
-  */
 
   // 4. Update Telegram Message Trail
   if (messageId) {

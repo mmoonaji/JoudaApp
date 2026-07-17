@@ -4,10 +4,16 @@
 
 ```text
 React/Vite Frontend
-  ├─ reads public products/content from JoudaApp
+  ├─ reads public products/content through Vercel /api/catalog
   ├─ admin dashboard writes content/settings through Supabase Auth
-  ├─ submit orders through submit-order
+  ├─ loads public media through Vercel /api/media
+  ├─ submits orders through Vercel /api/orders
   └─ Android native shell through Capacitor
+
+Vercel API
+  ├─ forwards /api/catalog to public Supabase reads
+  ├─ forwards /api/media to Supabase Storage
+  └─ forwards /api/orders to submit-order with the server-side anon key
 
 JoudaApp Supabase
   ├─ public app tables/views
@@ -32,7 +38,9 @@ Telegram Bot
 | Source | Target | Relationship |
 |---|---|---|
 | Inventory `products` | JoudaApp `products` | `sync-products` copies display fields and stock snapshot |
-| Frontend checkout | `submit-order` | Creates app order and Inventory quotation |
+| Frontend catalog/media | Vercel `/api/catalog`, `/api/media` | Avoids direct browser reads from `supabase.co` |
+| Frontend checkout | Vercel `/api/orders` | Avoids direct browser submission to `supabase.co` |
+| Vercel `/api/orders` | `submit-order` | Creates app order and Inventory quotation |
 | Inventory invoice insert | `telegram-bot` | Database webhook sends invoice event |
 | Telegram callbacks | JoudaApp + Inventory | Workflow buttons update order/invoice state |
 | Admin dashboard | JoudaApp tables | Authenticated direct writes for app-owned content |
@@ -50,6 +58,7 @@ Before a task:
 ## Boundaries
 
 - Frontend must not use service role keys.
+- Vercel `/api/orders` uses only the anon key; service role remains inside Supabase Edge Functions.
 - JoudaApp stock display is not the reservation authority.
 - Telegram callback data must stay under 64 characters.
 - Edge Function secrets belong in Supabase Function secrets, not source files.

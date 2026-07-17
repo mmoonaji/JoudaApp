@@ -11,7 +11,7 @@ import { getClients } from './db.ts';
 import { env } from './config.ts';
 import { invButtons } from './workflow.ts';
 
-import { fmtDate, paymentLabel, formatPhone } from './format.ts';
+import { paymentLabel, formatPhone } from './format.ts';
 
 // ─── New Invoice (POS → Group) ──────────────────────────
 
@@ -135,9 +135,6 @@ ${itemsList}${extraItems}
 // ─── Reversed Invoice ───────────────────────────────────
 
 export async function handleReversedInvoice(record: any) {
-  // Temporarily disabled by user request (2026-06-18)
-  return;
-
   if (!record.is_voided) return;
 
   const token = env.botToken();

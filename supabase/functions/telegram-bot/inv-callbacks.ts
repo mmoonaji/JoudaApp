@@ -10,8 +10,79 @@ import { answerCallback, editMessage, getMessageLink } from './telegram.ts';
 import { getClients } from './db.ts';
 import { env, isAdmin, getInventoryUserId } from './config.ts';
 import { INV_ACTIONS, invButtons, INV_ACTION_TO_APP_STATUS_MAP } from './workflow.ts';
-import { fmtDate } from './format.ts';
 import { parseCallbackData, handleAbort, requireConfirmation } from './confirmations.ts';
+
+function isCashPayment(paymentMethod?: string | null): boolean {
+  return paymentMethod === 'CASH';
+}
+
+async function assignCashInvoiceToCollector(
+  token: string,
+  callbackId: string,
+  inventory: any,
+  invoice: any,
+  telegramUserId: string,
+): Promise<boolean> {
+  if (!isCashPayment(invoice.payment_method)) return true;
+
+  const inventoryUserId = getInventoryUserId(telegramUserId);
+  if (!inventoryUserId) {
+    await answerCallback(
+      token,
+      callbackId,
+      `⚠️ لا يمكنك حجز فاتورة كاش: حسابك (${telegramUserId}) غير مربوط بالمخزون في TELEGRAM_DRIVER_MAP`,
+      true,
+    );
+    return false;
+  }
+
+  const { data, error } = await inventory.rpc('assign_invoice_to_collector', {
+    p_invoice_id: invoice.id,
+    p_collector_id: inventoryUserId,
+    p_actor_user_id: env.systemUserId(),
+  });
+
+  if (error || (data && data.success === false)) {
+    const errMsg = error?.message || data?.error || 'Unknown error';
+    await answerCallback(
+      token,
+      callbackId,
+      `⚠️ لم يتم ربط العهدة بالمندوب: ${errMsg}`,
+      true,
+    );
+    return false;
+  }
+
+  return true;
+}
+
+async function settleCashInvoice(
+  token: string,
+  callbackId: string,
+  inventory: any,
+  invoice: any,
+): Promise<boolean> {
+  if (!isCashPayment(invoice.payment_method)) return true;
+
+  const { data: settleResult, error: settleErr } = await inventory.rpc('settle_single_invoice', {
+    p_invoice_id: invoice.id,
+    p_actor_user_id: env.systemUserId(),
+    p_idempotency_key: `settle_${invoice.id}`,
+  });
+
+  const settleData = settleResult as any;
+  if (settleErr || (settleData && settleData.success === false)) {
+    await answerCallback(
+      token,
+      callbackId,
+      `فشل التوريد: ${settleErr?.message || settleData?.error || 'خطأ غير معروف'}`,
+      true,
+    );
+    return false;
+  }
+
+  return true;
+}
 
 // ─── Main Handler ───────────────────────────────────────
 
@@ -43,7 +114,7 @@ export async function handleInvCallback(
   // ── 1. Fetch invoice ──
   const { data: invoice } = await inventory
     .from('invoices')
-    .select('id, workflow_status, is_voided, status')
+    .select('id, workflow_status, is_voided, status, payment_method')
     .eq('id', invoiceId)
     .single();
 
@@ -121,47 +192,37 @@ export async function handleInvCallback(
     return;
   }
 
-  // ── 4.5 Deposit → settle invoice via RPC (creates settlement_batch + wallet entry) ──
-  // TEMPORARILY DISABLED PER USER REQUEST (2026-06-25)
-  /*
-  if (action === 'deposit') {
-    const { data: settleResult, error: settleErr } = await inventory.rpc('settle_single_invoice', {
-      p_invoice_id: invoiceId,
-      p_actor_user_id: env.systemUserId(),
-      p_idempotency_key: `settle_${invoiceId}`,
-    });
-    if (settleErr) {
-      await answerCallback(
-        token,
-        callback.id,
-        `فشل التوريد: ${settleErr.message}`,
-        true,
-      );
-      return;
-    }
-    const settleData = settleResult as any;
-    if (settleData && settleData.success === false) {
-      await answerCallback(
-        token,
-        callback.id,
-        `فشل التوريد: ${settleData.error || 'خطأ غير معروف'}`,
-        true,
-      );
-      return;
-    }
+  // ── 4.5 Reserve → assign cash invoice to collector and create COLLECTION entry ──
+  if (action === 'reserve') {
+    const assigned = await assignCashInvoiceToCollector(
+      token,
+      callback.id,
+      inventory,
+      invoice,
+      userId,
+    );
+    if (!assigned) return;
   }
-  */
+
+  // ── 4.6 Deposit → settle cash invoice via RPC (creates settlement_batch + SETTLEMENT entry) ──
+  if (action === 'deposit') {
+    const settled = await settleCashInvoice(token, callback.id, inventory, invoice);
+    if (!settled) return;
+  }
 
   // ── 5. Normal action: update workflow_status (optimistic lock) ──
-  const { error: updateErr } = await inventory
+  const nowIso = new Date().toISOString();
+  const { data: updatedInvoice, error: updateErr } = await inventory
     .from('invoices')
     .update({
       workflow_status: actionDef.nextStatus,
       workflow_updated_by: userId,
-      workflow_updated_at: new Date().toISOString(),
+      workflow_updated_at: nowIso,
     })
     .eq('id', invoiceId)
-    .eq('workflow_status', currentWf); // Optimistic lock
+    .eq('workflow_status', currentWf) // Optimistic lock
+    .select('id')
+    .maybeSingle();
 
   if (updateErr) {
     await answerCallback(
@@ -173,37 +234,22 @@ export async function handleInvCallback(
     return;
   }
 
+  if (!updatedInvoice) {
+    await answerCallback(
+      token,
+      callback.id,
+      '⚠️ سبقك زميلك — الفاتورة تم تحديثها مسبقاً',
+      true,
+    );
+    return;
+  }
+
   if (INV_ACTION_TO_APP_STATUS_MAP[action]) {
     await jouda
       .from('customer_orders')
       .update({ status: INV_ACTION_TO_APP_STATUS_MAP[action] })
       .eq('quotation_id', invoiceId);
   }
-
-  // ── 6.5 Invoice Assignment (Driver Mapping) — reserve only ──
-  // TEMPORARILY DISABLED PER USER REQUEST (2026-06-25)
-  // Only assign collector at the 'reserve' step. Prepare/deliver can be done by anyone.
-  /*
-  if (action === 'reserve') {
-    const inventoryUserId = getInventoryUserId(userId);
-    if (inventoryUserId) {
-      const { data, error } = await inventory.rpc('assign_invoice_to_collector', {
-        p_invoice_id: invoiceId,
-        p_collector_id: inventoryUserId,
-        p_actor_user_id: env.systemUserId(),
-      });
-      if (error || (data && data.success === false)) {
-        const errMsg = error?.message || data?.error || 'Unknown error';
-        console.error('Failed to assign invoice:', errMsg);
-        await answerCallback(token, callback.id, `⚠️ لم يتم إسناد الفاتورة في المخزون: ${errMsg}`, true);
-      }
-    } else {
-      // Not mapped in TELEGRAM_DRIVER_MAP — block reserve since we need a collector
-      await answerCallback(token, callback.id, `⚠️ لا يمكنك حجز الفاتورة: حسابك (${userId}) غير مربوط بالمخزون في TELEGRAM_DRIVER_MAP`, true);
-      return;
-    }
-  }
-  */
 
   // ── 7. Acknowledge ──
   await answerCallback(

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../../services/supabaseClient';
 import { useCart } from '../../contexts/CartContext';
 import { getCachedProducts } from '../../services/db';
+import { fetchBannersFromSupabase } from '../../services/supabaseService';
 
 interface Banner {
   id: string;
@@ -25,13 +25,8 @@ export const PromoBanner: React.FC = () => {
     const fetchBanners = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('banners')
-          .select('*')
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true });
-
-        if (!error && data && data.length > 0) {
+        const data = await fetchBannersFromSupabase();
+        if (data.length > 0) {
           setBanners(data);
         }
       } catch (err) {

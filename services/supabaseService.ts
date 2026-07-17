@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { rewriteSupabaseStorageUrl } from '../utils/mediaProxy';
 import {
   cacheProducts,
   getCachedProducts,
@@ -8,7 +9,6 @@ import {
   getCachedArticles,
   cacheFAQ,
   getCachedFAQ,
-  getCacheAge,
 } from './db';
 
 export interface Product {
@@ -72,6 +72,47 @@ export interface AppCategory {
   sort_order: number;
 }
 
+type CatalogSection = 'products' | 'recipes' | 'articles' | 'faq' | 'banners' | 'settings';
+
+interface CatalogProductsResponse {
+  products: Record<string, any>[];
+  package_items: Record<string, any>[];
+}
+
+interface CatalogRecipesResponse {
+  recipes: Record<string, any>[];
+}
+
+interface CatalogArticlesResponse {
+  articles: Record<string, any>[];
+}
+
+interface CatalogFaqResponse {
+  faq: Record<string, any>[];
+}
+
+interface CatalogBannersResponse {
+  banners: Record<string, any>[];
+}
+
+interface CatalogSettingsResponse {
+  settings: {
+    maintenance_mode?: boolean;
+    maintenance_message?: string | null;
+    store_latitude?: number | null;
+    store_longitude?: number | null;
+    delivery_price_per_km?: number | null;
+  } | null;
+}
+
+async function fetchCatalogSection<T>(section: CatalogSection): Promise<T> {
+  const response = await fetch(`/api/catalog?section=${section}`);
+  if (!response.ok) {
+    throw new Error(`Failed to load catalog section: ${section}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export const fetchAppCategoriesFromSupabase = async (): Promise<AppCategory[]> => {
   try {
     const { data, error } = await supabase
@@ -108,28 +149,9 @@ export interface Article {
 
 export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('name', { ascending: true });
+    const { products, package_items: packageItems } = await fetchCatalogSection<CatalogProductsResponse>('products');
 
-    if (error) throw error;
-
-    // Fetch package items mappings
-    let packageItems: any[] = [];
-    try {
-      const { data: mappings, error: mappingsError } = await supabase
-        .from('package_items')
-        .select('*');
-      if (!mappingsError && mappings) {
-        packageItems = mappings;
-      }
-    } catch (e) {
-      console.warn('Failed to fetch package_items mappings', e);
-    }
-
-    const products: Product[] = (data || [])
+    const productsList: Product[] = (products || [])
       .filter((p) => p.is_hidden_in_app !== true)
       .map((p) => {
       const resolvedCategory = p.app_category || p.category || 'عام';
@@ -143,7 +165,7 @@ export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
       if (isPackage && packageItems.length > 0) {
         const mappings = packageItems.filter((m) => m.package_barcode === p.barcode);
         bundle_items = mappings.map((m) => {
-          const compProduct = data.find((bp) => bp.barcode === m.product_barcode);
+          const compProduct = products.find((bp) => bp.barcode === m.product_barcode);
           return {
             barcode: m.product_barcode,
             product_name: compProduct ? compProduct.name : `منتج ${m.product_barcode}`,
@@ -153,7 +175,7 @@ export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
 
         // Dynamic stock status check for packages: if any constituent item is out of stock, package is out of stock
         for (const m of mappings) {
-          const compProduct = data.find((bp) => bp.barcode === m.product_barcode);
+          const compProduct = products.find((bp) => bp.barcode === m.product_barcode);
           if (!compProduct) {
             packageInStock = false;
             break;
@@ -199,17 +221,23 @@ export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
           : (isForcedOut ? false : (isBakery ? true : finalStockStatus === 'available')),
         source: isBakery ? ('bakery' as const) : ('store' as const),
         bundle_items,
-      };
-    });
+        };
+      });
 
     // Cache in IndexedDB for offline
-    try { await cacheProducts(products); } catch (e) { console.warn('Failed to cache products', e); }
-    return products;
+    try { await cacheProducts(productsList); } catch (e) { console.warn('Failed to cache products', e); }
+    return productsList;
   } catch (error) {
     console.warn('Supabase products failed, trying IndexedDB cache...', error);
     try {
       const cached = await getCachedProducts();
-      if (cached.length > 0) return cached;
+      if (cached.length > 0) {
+        return cached.map((product) => ({
+          ...product,
+          image: rewriteSupabaseStorageUrl(product.image_url || product.image),
+          image_url: rewriteSupabaseStorageUrl(product.image_url || product.image),
+        }));
+      }
     } catch (e) {}
     return [];
   }
@@ -224,14 +252,9 @@ let recipesFetchPromise: Promise<Recipe[]> | null = null;
 
 const fetchRecipesFresh = async (): Promise<Recipe[]> => {
   try {
-    const { data, error } = await supabase
-      .from('recipes')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { recipes } = await fetchCatalogSection<CatalogRecipesResponse>('recipes');
 
-    if (error) throw error;
-
-    const recipes: Recipe[] = (data || []).map((r) => ({
+    const recipeList: Recipe[] = (recipes || []).map((r) => ({
       id: r.id,
       title: r.title,
       description: r.description || '',
@@ -250,13 +273,19 @@ const fetchRecipesFresh = async (): Promise<Recipe[]> => {
       videoUrl: r.video_url,
     }));
 
-    try { await cacheRecipes(recipes); } catch (e) { console.warn('Failed to cache recipes', e); }
-    return recipes;
+    try { await cacheRecipes(recipeList); } catch (e) { console.warn('Failed to cache recipes', e); }
+    return recipeList;
   } catch (error) {
     console.warn('Supabase recipes failed, trying IndexedDB cache...', error);
     try {
       const cached = await getCachedRecipes();
-      if (cached.length > 0) return cached;
+      if (cached.length > 0) {
+        return cached.map((recipe) => ({
+          ...recipe,
+          image: rewriteSupabaseStorageUrl(recipe.image_url || recipe.image),
+          image_url: rewriteSupabaseStorageUrl(recipe.image_url || recipe.image),
+        }));
+      }
     } catch (e) {}
     return [];
   }
@@ -278,14 +307,9 @@ export const fetchRecipesFromSupabase = async (): Promise<Recipe[]> => {
 
 export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
   try {
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { articles } = await fetchCatalogSection<CatalogArticlesResponse>('articles');
 
-    if (error) throw error;
-
-    const articles: Article[] = (data || []).map((a) => ({
+    const articleList: Article[] = (articles || []).map((a) => ({
       id: a.id,
       title: a.title,
       image: a.image_url || '',
@@ -296,13 +320,19 @@ export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
       author: a.author || 'جوده',
     }));
 
-    try { await cacheArticles(articles); } catch (e) { console.warn('Failed to cache articles', e); }
-    return articles;
+    try { await cacheArticles(articleList); } catch (e) { console.warn('Failed to cache articles', e); }
+    return articleList;
   } catch (error) {
     console.warn('Supabase articles failed, trying IndexedDB cache...', error);
     try {
       const cached = await getCachedArticles();
-      if (cached.length > 0) return cached;
+      if (cached.length > 0) {
+        return cached.map((article) => ({
+          ...article,
+          image: rewriteSupabaseStorageUrl(article.image_url || article.image),
+          image_url: rewriteSupabaseStorageUrl(article.image_url || article.image),
+        }));
+      }
     } catch (e) {}
     return [];
   }
@@ -314,21 +344,16 @@ export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
 
 export const fetchFAQFromSupabase = async (): Promise<FAQItem[]> => {
   try {
-    const { data, error } = await supabase
-      .from('faq')
-      .select('*')
-      .order('sort_order', { ascending: true });
+    const { faq } = await fetchCatalogSection<CatalogFaqResponse>('faq');
 
-    if (error) throw error;
-
-    const faq: FAQItem[] = (data || []).map((f) => ({
+    const faqItems: FAQItem[] = (faq || []).map((f) => ({
       id: f.id,
       question: f.question,
       answer: f.answer,
     }));
 
-    try { await cacheFAQ(faq); } catch (e) { console.warn('Failed to cache FAQ', e); }
-    return faq;
+    try { await cacheFAQ(faqItems); } catch (e) { console.warn('Failed to cache FAQ', e); }
+    return faqItems;
   } catch (error) {
     console.warn('Supabase FAQ failed, trying IndexedDB cache...', error);
     try {
@@ -336,6 +361,42 @@ export const fetchFAQFromSupabase = async (): Promise<FAQItem[]> => {
       if (cached.length > 0) return cached;
     } catch (e) {}
     return [];
+  }
+};
+
+export interface Banner {
+  id: string;
+  title: string;
+  image_url: string;
+  link_url: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export const fetchBannersFromSupabase = async (): Promise<Banner[]> => {
+  try {
+    const { banners } = await fetchCatalogSection<CatalogBannersResponse>('banners');
+    return (banners || []).map((banner) => ({
+      id: banner.id,
+      title: banner.title,
+      image_url: banner.image_url || '',
+      link_url: banner.link_url || '',
+      sort_order: banner.sort_order || 0,
+      is_active: banner.is_active !== false,
+    }));
+  } catch (error) {
+    console.warn('Supabase banners failed', error);
+    return [];
+  }
+};
+
+export const fetchPublicSettingsFromSupabase = async (): Promise<CatalogSettingsResponse['settings']> => {
+  try {
+    const { settings } = await fetchCatalogSection<CatalogSettingsResponse>('settings');
+    return settings;
+  } catch (error) {
+    console.warn('Supabase settings failed', error);
+    return null;
   }
 };
 
@@ -373,17 +434,19 @@ export const submitOrderToSupabase = async (
   payload: SubmitOrderPayload
 ): Promise<SubmitOrderResult> => {
   try {
-    const { data, error } = await supabase.functions.invoke('submit-order', {
-      body: payload,
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
 
-    if (error) throw error;
+    const data = await response.json();
     return data as SubmitOrderResult;
   } catch (error: any) {
     console.error('submitOrderToSupabase error:', error);
     return {
       success: false,
-      message: error.message || 'Failed to submit order',
+      message: error.message || 'تعذر الاتصال بنظام الطلبات. جرّب مرة أخرى أو أرسل الطلب عبر واتساب.',
     };
   }
 };

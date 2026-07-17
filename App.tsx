@@ -23,6 +23,7 @@ import { SyncProvider } from './contexts/SyncContext';
 import { supabase } from './services/supabaseClient';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { ReloadPrompt } from './components/common/ReloadPrompt';
+import { fetchPublicSettingsFromSupabase } from './services/supabaseService';
 
 const ONBOARDING_KEY = 'jouda_onboarding_seen_v1';
 
@@ -125,13 +126,9 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const checkMaintenance = async () => {
       try {
-        const { data, error } = await supabase
-          .from('app_settings_public')
-          .select('maintenance_mode, maintenance_message')
-          .eq('id', 1)
-          .single();
+        const data = await fetchPublicSettingsFromSupabase();
 
-        if (!error && data) {
+        if (data) {
           setMaintenanceMode(data.maintenance_mode || false);
           setMaintenanceMessage(data.maintenance_message || '');
         }
@@ -143,46 +140,17 @@ const AppContent: React.FC = () => {
     };
 
     checkMaintenance();
-
-    // #6: subscribe to realtime, pause when app goes to background to save battery
-    let subscription: ReturnType<typeof supabase.channel> | null = null;
-
-    const startSubscription = () => {
-      subscription = supabase
-        .channel('app_settings_changes')
-        .on('postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
-          (payload) => {
-            const newData = payload.new as any;
-            setMaintenanceMode(newData.maintenance_mode || false);
-            setMaintenanceMessage(newData.maintenance_message || '');
-          }
-        )
-        .subscribe();
-    };
-
-    const stopSubscription = () => {
-      if (subscription) {
-        subscription.unsubscribe();
-        subscription = null;
-      }
-    };
-
+    const interval = window.setInterval(checkMaintenance, 60000);
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopSubscription();
-      } else {
-        startSubscription();
-        // Re-check maintenance in case it changed while backgrounded
+      if (!document.hidden) {
         checkMaintenance();
       }
     };
 
-    startSubscription();
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      stopSubscription();
+      clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);

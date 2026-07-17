@@ -79,11 +79,13 @@ export async function handleToday(token: string, chatId: string) {
         .select('status, total, subtotal, delivery_fee, payment_method, created_at')
         .gte('created_at', startIso)
         .lt('created_at', endIso)
-        .neq('status', 'cancelled'),
+        .neq('status', 'cancelled')
+        .not('order_number', 'like', 'INV-%'),
       jouda
         .from('customer_orders')
         .select('status')
-        .in('status', APP_ACTIVE_STATUSES),
+        .in('status', APP_ACTIVE_STATUSES)
+        .not('order_number', 'like', 'INV-%'),
       inventory
         .from('invoices')
         .select('subtotal, discount, delivery_fee, total_amount, payment_method, workflow_status')
@@ -140,6 +142,7 @@ export async function handleQueue(token: string, chatId: string) {
       .from('customer_orders')
       .select('order_number, customer_name, total, status, created_at')
       .in('status', APP_ACTIVE_STATUSES)
+      .not('order_number', 'like', 'INV-%')
       .order('created_at', { ascending: true }),
     inventory
       .from('invoices')
@@ -205,8 +208,7 @@ export async function handleMoney(token: string, chatId: string) {
       .from('invoices')
       .select('id, collector_id, total_amount, subtotal, discount, delivery_fee, workflow_status, payment_method, users!invoices_collector_id_fkey(name)')
       .eq('is_voided', false)
-      .eq('is_settled', false)
-      .not('collector_id', 'is', null),
+      .eq('is_settled', false),
   ]);
 
   const invoiceIds = (unsettledInvoices || []).map((invoice: any) => invoice.id);
@@ -219,28 +221,56 @@ export async function handleMoney(token: string, chatId: string) {
     if (order.quotation_id) appStatusMap[order.quotation_id] = order.status;
   }
 
-  const driverStats: Record<string, { name: string; collected: number; collectedCount: number; pendingCount: number }> = {};
+  const driverStats: Record<string, {
+    name: string;
+    collected: number;
+    collectedCount: number;
+    pendingCount: number;
+    markedDepositedCount: number;
+  }> = {};
   let cashToDeposit = 0;
   let deliveredNotPaid = 0;
   let paidNotDeposited = 0;
+  let missingCollectorCount = 0;
+  let missingCollectorAmount = 0;
+  let markedDepositedNotSettled = 0;
+  let markedDepositedNotSettledAmount = 0;
 
   for (const invoice of unsettledInvoices || []) {
-    const driverId = invoice.collector_id;
+    const driverId = invoice.collector_id || 'unassigned';
     if (!driverStats[driverId]) {
       // @ts-ignore Supabase nested relation typing is not available in Edge runtime.
-      driverStats[driverId] = { name: invoice.users?.name || 'غير معروف', collected: 0, collectedCount: 0, pendingCount: 0 };
+      driverStats[driverId] = {
+        name: invoice.collector_id ? (invoice.users?.name || 'غير معروف') : 'غير مسند',
+        collected: 0,
+        collectedCount: 0,
+        pendingCount: 0,
+        markedDepositedCount: 0,
+      };
     }
 
     const effectiveStatus = appStatusMap[invoice.id] || invoice.workflow_status;
     const cashAmount = invoice.payment_method === 'CASH'
       ? Math.max((invoice.subtotal ?? ((invoice.total_amount || 0) - (invoice.delivery_fee || 0))) - (invoice.discount || 0), 0)
       : 0;
+    const isCashStatusNeedingCustody = ['delivered', 'deliver', 'paid', 'deposited', 'deposit'].includes(effectiveStatus);
+
+    if (!invoice.collector_id && cashAmount > 0 && isCashStatusNeedingCustody) {
+      missingCollectorCount++;
+      missingCollectorAmount += cashAmount;
+    }
 
     if (effectiveStatus === 'paid') {
       driverStats[driverId].collected += cashAmount;
       driverStats[driverId].collectedCount++;
       cashToDeposit += cashAmount;
       paidNotDeposited++;
+    } else if (effectiveStatus === 'deposited' || effectiveStatus === 'deposit') {
+      if (cashAmount > 0) {
+        driverStats[driverId].markedDepositedCount++;
+        markedDepositedNotSettled++;
+        markedDepositedNotSettledAmount += cashAmount;
+      }
     } else {
       driverStats[driverId].pendingCount++;
       if (effectiveStatus === 'delivered' || effectiveStatus === 'deliver') deliveredNotPaid++;
@@ -251,9 +281,9 @@ export async function handleMoney(token: string, chatId: string) {
   const todayDelivery = sumBy(todayInvoices, (i: any) => i.delivery_fee);
   const todayCash = sumBy(todayInvoices, (i: any) => i.payment_method === 'CASH' ? i.total_amount : 0);
   const driverLines = Object.values(driverStats)
-    .filter((driver) => driver.collectedCount > 0 || driver.pendingCount > 0)
+    .filter((driver) => driver.collectedCount > 0 || driver.pendingCount > 0 || driver.markedDepositedCount > 0)
     .map((driver) =>
-      `• ${driver.name}: <b>${money(driver.collected)}</b> - محصل ${driver.collectedCount} / معلق ${driver.pendingCount}`
+      `• ${driver.name}: <b>${money(driver.collected)}</b> - محصل ${driver.collectedCount} / معلق ${driver.pendingCount} / مودع بلا تسوية ${driver.markedDepositedCount}`
     )
     .join('\n') || 'لا توجد عهد حالية على المناديب.';
 
@@ -267,6 +297,8 @@ export async function handleMoney(token: string, chatId: string) {
 • غير كاش: <b>${money(Math.max(todaySales - todayCash, 0))}</b>
 
 💵 <b>كاش مطلوب توريده:</b> <b>${money(cashToDeposit)}</b>
+⚠️ <b>كاش بلا محصل:</b> <b>${missingCollectorCount}</b> فاتورة - <b>${money(missingCollectorAmount)}</b>
+⚠️ <b>مودع بلا تسوية:</b> <b>${markedDepositedNotSettled}</b> فاتورة - <b>${money(markedDepositedNotSettledAmount)}</b>
 
 🏍️ <b>حسب المندوب</b>
 ${driverLines}

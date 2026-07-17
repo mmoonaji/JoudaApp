@@ -2,10 +2,38 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { handleCatalogRequest, handleMediaRequest, handleOrdersRequest } from './api/proxy'
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, (process as any).cwd(), '');
+  const proxyEnv = { ...process.env, ...env };
+
+  const localApiProxy = () => ({
+    name: 'jouda-local-api-proxy',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url) return next();
+
+        if (req.url.startsWith('/api/orders')) {
+          handleOrdersRequest(req, res, proxyEnv).catch(next);
+          return;
+        }
+
+        if (req.url.startsWith('/api/catalog')) {
+          handleCatalogRequest(req, res, proxyEnv).catch(next);
+          return;
+        }
+
+        if (req.url.startsWith('/api/media')) {
+          handleMediaRequest(req, res, proxyEnv).catch(next);
+          return;
+        }
+
+        next();
+      });
+    },
+  });
 
   return {
     server: {
@@ -26,6 +54,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      localApiProxy(),
       VitePWA({
         registerType: 'prompt',
         devOptions: {
