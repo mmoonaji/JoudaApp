@@ -19,11 +19,9 @@ test('order proxy forwards submissions to the existing Supabase Edge Function se
   assert.equal(existsSync(new URL('api/orders.ts', ROOT)), true);
 
   const orderProxy = source('api/orders.ts');
-  const proxyShared = source('api/proxy.ts');
 
-  assert.match(orderProxy, /handleOrdersRequest/);
-  assert.match(proxyShared, /functions\/v1\/submit-order/);
-  assert.match(proxyShared, /SUPABASE_ANON_KEY/);
-  assert.match(proxyShared, /SUPABASE_ANON/);
-  assert.doesNotMatch(proxyShared, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(orderProxy, /functions\/v1\/submit-order/);
+  assert.match(orderProxy, /SUPABASE_ANON_KEY/);
+  assert.match(orderProxy, /SUPABASE_ANON/);
+  assert.doesNotMatch(orderProxy, /SUPABASE_SERVICE_ROLE_KEY/);
 });
