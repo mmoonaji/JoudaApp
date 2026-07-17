@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { compressImage } from '../../utils/imageCompression';
+import { rewriteSupabaseStorageUrl } from '../../utils/mediaProxy';
 
 export const AdminContentService = {
   // ==========================
@@ -20,7 +21,7 @@ export const AdminContentService = {
       .from('public-assets')
       .getPublicUrl(fileName);
 
-    return `${publicUrl}?t=${Date.now()}`;
+    return rewriteSupabaseStorageUrl(`${publicUrl}?t=${Date.now()}`);
   },
 
   // ==========================

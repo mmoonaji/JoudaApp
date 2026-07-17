@@ -20,11 +20,35 @@ const resolveSupabaseAnonKey = (env: EnvLike) => {
   return value;
 };
 
+const configuredSupabaseKeys = (env: EnvLike) =>
+  [
+    env.SUPABASE_ANON_KEY,
+    env.VITE_SUPABASE_ANON_KEY,
+    env.VITE_SUPABASE_ANON,
+    env.API_KEY,
+  ].filter(Boolean);
+
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
     status,
     headers: { 'Cache-Control': 'no-store' },
   });
+
+const rewriteStorageUrl = (value: string) => {
+  const supabaseUrl = resolveSupabaseUrl(process.env);
+  if (!value.startsWith(`${supabaseUrl}/storage/v1/object/public/`)) return value;
+  return `/api/media?url=${encodeURIComponent(value)}`;
+};
+
+const rewriteStorageUrls = (value: unknown): unknown => {
+  if (typeof value === 'string') return rewriteStorageUrl(value);
+  if (Array.isArray(value)) return value.map((item) => rewriteStorageUrls(item));
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, rewriteStorageUrls(item)]),
+  );
+};
 
 export default {
   async fetch(request: Request) {
@@ -45,8 +69,15 @@ export default {
       headers.delete('host');
       headers.delete('connection');
       headers.delete('content-length');
-      headers.set('apikey', resolveSupabaseAnonKey(process.env));
-      headers.set('authorization', `Bearer ${resolveSupabaseAnonKey(process.env)}`);
+
+      const anonKey = resolveSupabaseAnonKey(process.env);
+      headers.set('apikey', anonKey);
+
+      const incomingAuthorization = headers.get('authorization') || '';
+      const incomingBearer = incomingAuthorization.match(/^Bearer\s+(.+)$/i)?.[1];
+      if (!incomingBearer || configuredSupabaseKeys(process.env).includes(incomingBearer)) {
+        headers.set('authorization', `Bearer ${anonKey}`);
+      }
 
       const body =
         request.method === 'GET' || request.method === 'HEAD'
@@ -65,6 +96,12 @@ export default {
       responseHeaders.delete('content-length');
       responseHeaders.delete('transfer-encoding');
       responseHeaders.set('Cache-Control', 'no-store');
+
+      const contentType = upstream.headers.get('content-type') || '';
+      if (targetUrl.pathname.startsWith('/rest/v1/') && contentType.includes('application/json')) {
+        const data = await upstream.json();
+        return json(rewriteStorageUrls(data), upstream.status);
+      }
 
       return new Response(upstream.body, {
         status: upstream.status,
