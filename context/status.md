@@ -44,6 +44,11 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 | 2026-07-17 | Vercel proxy hardening completed | `/api/supabase` preserves authenticated user JWTs for admin RLS/RPC calls, forces the server-side anon key for anonymous requests, and rewrites Supabase Storage URLs in REST JSON to `/api/media` |
 | 2026-07-17 | Vercel health endpoint added | `/api/health` reports proxy runtime and required env presence without exposing secrets |
 | 2026-07-21 | Admin password recovery flow added | Recovery links now open a dedicated admin password reset screen instead of landing on login with no way to set a new password |
+| 2026-07-21 | Supabase client direct mode finalized | Browser Supabase now uses direct access only; the Vercel proxy path and runtime toggle were removed |
+| 2026-07-21 | Catalog reads moved direct | Public products, recipes, articles, banners, FAQ, app settings, and package mappings now load through the browser Supabase client instead of `/api/catalog` |
+| 2026-07-21 | Media and uploads moved direct | Public storage URLs now stay raw Supabase URLs and admin image uploads return direct `public-assets` URLs instead of `/api/media` |
+| 2026-07-21 | Checkout order submission moved direct | Frontend checkout now invokes `submit-order` through the Supabase client instead of `/api/orders`; the Vercel route was removed in phase 5 |
+| 2026-07-21 | Catalog/media proxy routes removed | Vercel `/api/catalog`, `/api/media`, and shared rewrite helpers were deleted after direct Supabase access proved stable |
 
 ## Known Risks
 
@@ -53,8 +58,8 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 - Gemini key rotation still requires a manual Google AI Studio key replacement and Supabase `GEMINI_API_KEY` secret update.
 - Telegram cash custody now depends on a complete `TELEGRAM_DRIVER_MAP`; unmapped Telegram users cannot reserve CASH orders or invoices.
 - Historical Telegram orders before 2026-07-13 may still have `deposited`/`deposit` workflow status without `collector_id` or `is_settled=true`; repair requires identifying the real collector before backfilling.
-- Vercel `/api/orders`, `/api/catalog`, `/api/media`, and `/api/supabase` require `SUPABASE_URL` plus an anon key (`SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON`, or compatibility `API_KEY`). Do not configure service role keys in these Vercel env values.
-- `/api/supabase` intentionally preserves authenticated `Authorization: Bearer <user JWT>` tokens after login; replacing them with anon breaks admin RPC/RLS calls such as `admin_get_app_settings`.
+- Browser Supabase now connects directly to `SUPABASE_URL` plus an anon key (`SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`, or `VITE_SUPABASE_ANON`). Do not expose service role keys in the frontend.
+- Direct browser access depends on `supabase.co` being reachable from the user's network; if it is blocked again, the app needs an explicit relay reintroduction.
 - Browser logs for `clarity.ms`, Sentry ingest, and PWA install prompt can be blocker/UX noise; treat them separately from Jouda API failures.
 
 ## Next Steps
@@ -65,4 +70,5 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 ---
 
-Last updated: 2026-07-17 by Codex.
+Last updated: 2026-07-21 by Codex.
+

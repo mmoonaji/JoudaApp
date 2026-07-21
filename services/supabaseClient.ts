@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseProxyFetch } from '../utils/supabaseProxy';
 
 // Vite env types
 const env = (import.meta as any).env;
@@ -10,17 +9,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Check .env.local');
 }
 
-const supabaseProxyFetch = createSupabaseProxyFetch(supabaseUrl);
+const createClientOptions = (headers?: Record<string, string>) => {
+  return {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+    ...(headers ? { global: { headers } } : {}),
+  };
+};
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-  },
-  global: {
-    fetch: supabaseProxyFetch,
-  },
-});
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', createClientOptions());
 
 const clientCache: Record<string, typeof supabase> = {};
 
@@ -30,18 +29,11 @@ export const getSupabaseClient = (phone?: string) => {
   if (!cleanPhone) return supabase;
 
   if (!clientCache[cleanPhone]) {
-    clientCache[cleanPhone] = createClient(supabaseUrl || '', supabaseAnonKey || '', {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-      },
-      global: {
-        fetch: supabaseProxyFetch,
-        headers: {
-          'x-customer-phone': cleanPhone,
-        },
-      },
-    });
+    clientCache[cleanPhone] = createClient(
+      supabaseUrl || '',
+      supabaseAnonKey || '',
+      createClientOptions({ 'x-customer-phone': cleanPhone }),
+    );
   }
   return clientCache[cleanPhone];
 };

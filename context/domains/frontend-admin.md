@@ -10,22 +10,21 @@ The frontend is the customer app and admin dashboard. It reads public data from 
 |---|---|
 | `services/supabaseClient.ts` | Supabase browser client and phone-header client helper |
 | `services/supabaseService.ts` | Public app data access and order submission |
-| `api/supabase.ts` | Vercel proxy for Supabase Auth/REST/RPC/Storage calls from the browser |
-| `api/media.ts` | Vercel proxy for public Supabase Storage assets |
 | `pages/AdminLogin.tsx` | Supabase Auth email/password login |
 | `services/admin/` | Admin writes for products, content, settings |
 | `components/admin/` | Admin UI components |
 
 ## Current Facts
 
-- Admin login uses `supabase.auth.signInWithPassword`; in production the configured client fetch routes this through `/api/supabase`.
+- Admin login uses `supabase.auth.signInWithPassword` directly against Supabase.
 - Password recovery links are handled in-app: `PASSWORD_RECOVERY` or `type=recovery` opens a dedicated reset-password screen that calls `supabase.auth.updateUser({ password })`.
-- `/api/supabase` must preserve authenticated `Authorization` bearer tokens after login so admin RLS/RPC calls keep the user identity.
-- Anonymous browser Supabase calls should use the server-side anon key inside `/api/supabase`; never rely on a service role key from browser headers.
+- Public catalog reads in `services/supabaseService.ts` now use the browser Supabase client directly instead of `/api/catalog`.
+- Public media URLs stay raw Supabase Storage URLs, and admin uploads return direct `public-assets` URLs instead of `/api/media`.
+- Checkout order submission now calls `supabase.functions.invoke('submit-order')` directly; the legacy `/api/orders` route has been removed.
 - Frontend env vars are `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 - Admin product changes can update JoudaApp directly, and Inventory-owned fields through `update-inventory`.
 - Content managers write recipes, articles, banners, FAQ, and uploaded images.
-- Image uploads use the `public-assets` storage bucket. Uploaded/public image URLs should be rewritten to `/api/media?url=...` before display so blocked clients do not load `supabase.co/storage` directly.
+- Image uploads use the `public-assets` storage bucket. New uploaded/public image URLs should remain direct Supabase Storage URLs.
 - Package and category features use `package_items` and `app_categories`.
 
 ## Product/Admin Fields
@@ -49,11 +48,11 @@ These fields are used by the current app/admin code and should not be treated as
 - Checked-in migrations do not fully explain every admin field/table currently used by the code.
 - Do not reintroduce `admin_pin` as the main admin model.
 - Never place service role keys in frontend code.
-- If admin pages show `admin_get_app_settings` 400 after login, check that `/api/supabase` did not replace the user JWT with anon.
-- If admin/product images show `ERR_NAME_NOT_RESOLVED` for `supabase.co/storage`, check storage URL rewriting through `/api/media` and stale browser/PWA cache.
+- If admin/product images show old `/api/media` URLs, clear browser/PWA cache or refresh the stored content because the media proxy route is gone.
 
 ## Related Context
 
 - Database/RLS: `context/domains/database-rls.md`
 - Edge Functions: `context/domains/edge-functions.md`
 - Decisions: `context/decisions.md`
+

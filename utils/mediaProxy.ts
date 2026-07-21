@@ -1,1 +1,0 @@
-export { rewriteSupabaseStorageUrl } from './supabaseProxy';

@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import { rewriteSupabaseStorageUrl } from '../utils/mediaProxy';
 import {
   cacheProducts,
   getCachedProducts,
@@ -105,12 +104,88 @@ interface CatalogSettingsResponse {
   } | null;
 }
 
+const normalizeCatalogImage = (row: Record<string, any>) => ({
+  ...row,
+});
+
 async function fetchCatalogSection<T>(section: CatalogSection): Promise<T> {
-  const response = await fetch(`/api/catalog?section=${section}`);
-  if (!response.ok) {
-    throw new Error(`Failed to load catalog section: ${section}`);
+  switch (section) {
+    case 'settings': {
+      const { data, error } = await supabase
+        .from('app_settings_public')
+        .select('maintenance_mode, maintenance_message, store_latitude, store_longitude, delivery_price_per_km')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return { settings: data || null } as T;
+    }
+
+    case 'products': {
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (productsError) throw productsError;
+
+      const { data: packageItems, error: packageError } = await supabase
+        .from('package_items')
+        .select('*');
+
+      if (packageError) throw packageError;
+
+      return {
+        products: (products || []).map((row) => normalizeCatalogImage(row)),
+        package_items: packageItems || [],
+      } as T;
+    }
+
+    case 'recipes': {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { recipes: (data || []).map((row) => normalizeCatalogImage(row)) } as T;
+    }
+
+    case 'articles': {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { articles: (data || []).map((row) => normalizeCatalogImage(row)) } as T;
+    }
+
+    case 'faq': {
+      const { data, error } = await supabase
+        .from('faq')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      return { faq: data || [] } as T;
+    }
+
+    case 'banners': {
+      const { data, error } = await supabase
+        .from('banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      return { banners: (data || []).map((row) => normalizeCatalogImage(row)) } as T;
+    }
+
+    default:
+      throw new Error(`Unsupported catalog section: ${section}`);
   }
-  return response.json() as Promise<T>;
 }
 
 export const fetchAppCategoriesFromSupabase = async (): Promise<AppCategory[]> => {
@@ -234,8 +309,8 @@ export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
       if (cached.length > 0) {
         return cached.map((product) => ({
           ...product,
-          image: rewriteSupabaseStorageUrl(product.image_url || product.image),
-          image_url: rewriteSupabaseStorageUrl(product.image_url || product.image),
+          image: product.image_url || product.image || '',
+          image_url: product.image_url || product.image || '',
         }));
       }
     } catch (e) {}
@@ -282,8 +357,8 @@ const fetchRecipesFresh = async (): Promise<Recipe[]> => {
       if (cached.length > 0) {
         return cached.map((recipe) => ({
           ...recipe,
-          image: rewriteSupabaseStorageUrl(recipe.image_url || recipe.image),
-          image_url: rewriteSupabaseStorageUrl(recipe.image_url || recipe.image),
+          image: recipe.image_url || recipe.image || '',
+          image_url: recipe.image_url || recipe.image || '',
         }));
       }
     } catch (e) {}
@@ -329,8 +404,8 @@ export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
       if (cached.length > 0) {
         return cached.map((article) => ({
           ...article,
-          image: rewriteSupabaseStorageUrl(article.image_url || article.image),
-          image_url: rewriteSupabaseStorageUrl(article.image_url || article.image),
+          image: article.image_url || article.image || '',
+          image_url: article.image_url || article.image || '',
         }));
       }
     } catch (e) {}
@@ -414,6 +489,8 @@ export interface SubmitOrderPayload {
   notes?: string;
   subtotal: number;
   delivery_fee: number;
+  latitude?: number | null;
+  longitude?: number | null;
   items: {
     product_barcode: string;
     product_name: string;
@@ -434,14 +511,12 @@ export const submitOrderToSupabase = async (
   payload: SubmitOrderPayload
 ): Promise<SubmitOrderResult> => {
   try {
-    const response = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const { data, error } = await supabase.functions.invoke('submit-order', {
+      body: payload,
     });
 
-    const data = await response.json();
-    return data as SubmitOrderResult;
+    if (error) throw error;
+    return (data || { success: false, message: 'تعذر قراءة رد نظام الطلبات' }) as SubmitOrderResult;
   } catch (error: any) {
     console.error('submitOrderToSupabase error:', error);
     return {

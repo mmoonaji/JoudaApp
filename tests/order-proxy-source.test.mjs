@@ -8,22 +8,17 @@ function source(path) {
   return readFileSync(new URL(path, ROOT), 'utf8');
 }
 
-test('checkout submits orders through the local Vercel order proxy', () => {
+test('checkout submits orders directly through Supabase Edge Functions', () => {
   const checkoutService = source('services/supabaseService.ts');
 
-  assert.match(checkoutService, /fetch\(\s*['"]\/api\/orders['"]/);
-  assert.doesNotMatch(checkoutService, /functions\.invoke\(\s*['"]submit-order['"]/);
+  assert.match(checkoutService, /functions\.invoke\(\s*['"]submit-order['"]/);
+  assert.doesNotMatch(checkoutService, /fetch\(\s*['"]\/api\/orders['"]/);
 });
 
-test('order proxy forwards submissions to the existing Supabase Edge Function server-side', () => {
-  assert.equal(existsSync(new URL('api/orders.ts', ROOT)), true);
+test('legacy checkout order proxy route is no longer shipped', () => {
+  const viteConfig = source('vite.config.ts');
 
-  const orderProxy = source('api/orders.ts');
-  const helperCode = source('utils/supabaseProxy.ts');
-
-  assert.match(orderProxy, /functions\/v1\/submit-order/);
-  assert.match(orderProxy, /resolveSupabaseAnonKey/);
-  assert.match(helperCode, /SUPABASE_ANON_KEY/);
-  assert.match(helperCode, /SUPABASE_ANON/);
-  assert.doesNotMatch(orderProxy, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.equal(existsSync(new URL('api/orders.ts', ROOT)), false);
+  assert.equal(existsSync(new URL('api/proxy.ts', ROOT)), false);
+  assert.doesNotMatch(viteConfig, /handleOrdersRequest|\/api\/orders/);
 });

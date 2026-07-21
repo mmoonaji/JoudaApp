@@ -34,21 +34,20 @@ This file records decisions that affect multiple areas of Jouda. Keep entries br
 - Admin services assume authenticated users and current live RLS policies.
 - `update-inventory` performs an additional email check for `joudafood@gmail.com`.
 
-### Proxy browser Supabase traffic through Vercel
+### Use direct Supabase browser access only
 
 **Date:** 2026-07-17  
 **Status:** Active
 
-**Context:** Some customer/admin networks can load `www.joudafood.com` but block direct DNS/TCP/WebSocket traffic to `*.supabase.co`, causing product reads, order submission, images, and admin login to fail.
+**Context:** Direct browser access to `*.supabase.co` is available again, so the app no longer needs a relay layer.
 
-**Decision:** Public catalog/orders/media and the configured Supabase browser client use Vercel API routes on `www.joudafood.com`: `/api/catalog`, `/api/orders`, `/api/media`, and `/api/supabase`.
+**Decision:** The browser Supabase client uses direct Supabase access only. There is no Vercel fallback path in the shipping app.
 
 **Consequences:**
 
-- Vercel deployments must include the source `api/` directory, not only built `dist/` assets.
-- `/api/supabase` must restrict proxy targets to the configured JoudaApp Supabase host.
-- Admin requests must preserve user JWTs after login; anonymous requests use only anon/publishable keys from Vercel env.
-- Supabase Storage URLs returned to the browser should be rewritten to `/api/media`.
+- Vercel deployments only need the static frontend source tree.
+- Admin requests go directly to Supabase and must rely on live auth/RLS.
+- Browser-visible storage URLs stay direct Supabase URLs.
 
 ### Split Edge Functions by responsibility
 
@@ -98,3 +97,61 @@ This file records decisions that affect multiple areas of Jouda. Keep entries br
 | Legacy `admin_pin` functions remain documented as legacy | After Inventory/JoudaApp security audit | They may be removed or superseded by stricter migrations |
 | CORS fallback to `*` | Before public production hardening | `ALLOWED_ORIGIN` should be enforced consistently |
 | Manual Edge Function deployment | When release cadence increases | CLI/CI deployment may reduce drift |
+
+### Default to direct Supabase browser access
+
+**Date:** 2026-07-21  
+**Status:** Active
+
+**Context:** The app has been cleaned to direct-only Supabase access.
+
+**Decision:** The browser Supabase client always uses direct mode. There is no environment toggle for a proxy fallback.
+
+**Consequences:**
+
+- Browser auth/REST/RPC/storage calls hit Supabase directly.
+- Any future relay would require an explicit code change and redeploy.
+- Phase 5 removed the dedicated checkout proxy and phase 6 removed catalog/media proxy routes after direct access proved stable.
+
+### Read public catalog directly from Supabase
+
+**Date:** 2026-07-21  
+**Status:** Active
+
+**Context:** Public catalog/settings reads were previously routed through `/api/catalog` as a network workaround.
+
+**Decision:** Public products, recipes, articles, banners, FAQ, app settings, and package mappings load directly through the browser Supabase client.
+
+**Consequences:**
+
+- `/api/catalog` was removed in phase 6 after direct catalog reads proved stable.
+- Image/media and order submission still keep their separate phases.
+
+### Read and upload media directly from Supabase Storage
+
+**Date:** 2026-07-21  
+**Status:** Active
+
+**Context:** Public storage assets were previously rewritten through `/api/media` and admin uploads returned proxied URLs.
+
+**Decision:** Public media URLs remain raw Supabase Storage URLs, and admin uploads return direct `public-assets` URLs. The `/api/media` route was removed in phase 6 after direct storage URLs proved stable.
+
+**Consequences:**
+
+- New content no longer depends on the media proxy.
+- Phase 6 removed the media proxy route after direct storage URLs proved stable.
+
+### Submit checkout orders directly through Supabase
+
+**Date:** 2026-07-21  
+**Status:** Active
+
+**Context:** Checkout was still routing through `/api/orders` even after direct browser Supabase access returned.
+
+**Decision:** The frontend now calls `supabase.functions.invoke('submit-order')` directly. The dedicated `/api/orders` route was removed after validation.
+
+**Consequences:**
+
+- Normal order submission no longer depends on the Vercel proxy.
+- `submit-order` still needs valid browser JWT handling.
+- The old `/api/orders` route should not be redeployed.
