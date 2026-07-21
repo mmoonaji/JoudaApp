@@ -34,6 +34,22 @@ This file records decisions that affect multiple areas of Jouda. Keep entries br
 - Admin services assume authenticated users and current live RLS policies.
 - `update-inventory` performs an additional email check for `joudafood@gmail.com`.
 
+### Proxy browser Supabase traffic through Vercel
+
+**Date:** 2026-07-17  
+**Status:** Active
+
+**Context:** Some customer/admin networks can load `www.joudafood.com` but block direct DNS/TCP/WebSocket traffic to `*.supabase.co`, causing product reads, order submission, images, and admin login to fail.
+
+**Decision:** Public catalog/orders/media and the configured Supabase browser client use Vercel API routes on `www.joudafood.com`: `/api/catalog`, `/api/orders`, `/api/media`, and `/api/supabase`.
+
+**Consequences:**
+
+- Vercel deployments must include the source `api/` directory, not only built `dist/` assets.
+- `/api/supabase` must restrict proxy targets to the configured JoudaApp Supabase host.
+- Admin requests must preserve user JWTs after login; anonymous requests use only anon/publishable keys from Vercel env.
+- Supabase Storage URLs returned to the browser should be rewritten to `/api/media`.
+
 ### Split Edge Functions by responsibility
 
 **Date:** 2026-06-26  

@@ -3,7 +3,7 @@
 > المرجع السريع لأي Agent أو مطور يعدل على Jouda.
 > اقرأه قبل التعديل، وحدثه بعد أي تغيير جوهري في البنية أو التدفق أو الأمان.
 
-آخر تحديث: 2026-06-27
+آخر تحديث: 2026-07-17
 
 ---
 
@@ -27,6 +27,12 @@ Jouda يتكون من تطبيق عميل React/Capacitor ومشروعين Supab
 ```text
 Jouda-main/
 ├── App.tsx, pages/, components/, services/, hooks/, utils/
+├── api/
+│   ├── catalog.ts
+│   ├── media.ts
+│   ├── orders.ts
+│   ├── supabase.ts
+│   └── health.ts
 ├── context/folder-structure-guidelines.md
 ├── capacitor.config.ts
 ├── android/
@@ -127,8 +133,8 @@ Inventory invoices INSERT
 ### طلب تطبيق Jouda
 
 ```text
-Frontend → Vercel `/api/catalog` / `/api/media` / `/api/orders` proxy
-→ بيانات العرض + الصور + إرسال الطلب
+Frontend → Vercel `/api/catalog` / `/api/media` / `/api/orders` / `/api/supabase`
+→ بيانات العرض + الصور + إرسال الطلب + مسارات الإدارة/Auth عند حجب `supabase.co`
 → submit-order
 → Inventory RPC: create_quotation
 → JoudaApp: customer_orders + order_items باستخدام service_role
@@ -171,7 +177,9 @@ pg_cron / net.http_post
 | `recipes`, `articles`, `banners`, `faq` | عامة | لوحة الإدارة تتوقع كتابة مستخدم authenticated حسب إعدادات RLS الحية |
 | `sync_logs` | service_role وauthenticated للوحة الإدارة | `sync-products` عبر service_role |
 
-مهم: لوحة الإدارة الحالية تستخدم Supabase Auth (`signInWithPassword`). خدمات الإدارة في `services/admin/` تكتب مباشرة إلى جداول المحتوى والمنتجات والبكجات والتصنيفات، وتستدعي `update-inventory` لتحديث Inventory. لا تعد إلى نظام `admin_pin` كمسار رئيسي، حتى لو بقيت migrations قديمة تحتوي RPCs مبنية عليه.
+مهم: لوحة الإدارة الحالية تستخدم Supabase Auth (`signInWithPassword`). في الإنتاج يمر عميل Supabase عبر Vercel `/api/supabase` لتجاوز حجب `supabase.co` من المتصفح. هذا الـ proxy يحصر الوجهة في host مشروع JoudaApp، يستخدم anon key من السيرفر، ويحافظ على JWT المستخدم بعد تسجيل الدخول لطلبات RLS/RPC الإدارية. خدمات الإدارة في `services/admin/` تكتب مباشرة إلى جداول المحتوى والمنتجات والبكجات والتصنيفات، وتستدعي `update-inventory` لتحديث Inventory. لا تعد إلى نظام `admin_pin` كمسار رئيسي، حتى لو بقيت migrations قديمة تحتوي RPCs مبنية عليه.
+
+رابط استعادة كلمة المرور للإدارة مدعوم الآن داخل الواجهة: إذا وصل `PASSWORD_RECOVERY` أو `type=recovery` إلى الموقع، تعرض الواجهة شاشة تعيين كلمة مرور جديدة بدل تحويل المستخدم مباشرة إلى `/admin/overview`.
 
 الكود الحالي يعتمد على live schema/RLS قد لا يكون ممثلاً بالكامل في migrations الموجودة. قبل تعديل Admin Services أو RLS، تحقق من Supabase الحي.
 
@@ -278,7 +286,7 @@ Callback data:
 | المتغير | الدور |
 |---|---|
 | `SUPABASE_URL` | يستخدمه `/api/orders` لاستدعاء `submit-order` من السيرفر |
-| `SUPABASE_ANON_KEY` | يستخدمه `/api/orders` كـ JWT مطلوب لـ `submit-order`; يدعم أيضاً `VITE_SUPABASE_ANON_KEY` و`VITE_SUPABASE_ANON` و`API_KEY` للتوافق؛ لا تستخدم `service_role` هنا |
+| `SUPABASE_ANON_KEY` | يستخدمه `/api/orders` و`/api/supabase` كـ anon/JWT server-side؛ يدعم أيضاً `VITE_SUPABASE_ANON_KEY` و`VITE_SUPABASE_ANON` و`API_KEY` للتوافق؛ لا تستخدم `service_role` هنا |
 
 ### Edge Functions
 
@@ -312,7 +320,7 @@ Callback data:
 | Database | Supabase SQL Editor أو migrations |
 | Secrets | Supabase Dashboard → Functions → Secrets |
 
-عند نشر Edge Function، لا تنس تحديث المتغيرات المرتبطة بها. عند تغيير واجهة Android، شغل build ثم sync قبل فتح Android Studio.
+عند نشر Frontend على Vercel، ارفع السورس الكامل لا `dist` فقط؛ مجلد `api/` يحتوي Vercel Functions المطلوبة للطلبات، الصور، الكتالوج، وSupabase proxy. تحقق بعد النشر من `/api/health` وأن env يظهر `SUPABASE_URL` و`SUPABASE_ANON_KEY` أو بدائلهما كـ `true`. عند نشر Edge Function، لا تنس تحديث المتغيرات المرتبطة بها. عند تغيير واجهة Android، شغل build ثم sync قبل فتح Android Studio.
 
 ---
 
@@ -328,6 +336,7 @@ Callback data:
 | نسيان `x-webhook-secret` في cron/webhooks | أرسله مع `WEBHOOK_SECRET` |
 | تحديث `stock_quantity` يدوياً كأنه مصدر الحقيقة | مصدر الحقيقة Inventory؛ JoudaApp للعرض |
 | الخلط بين `reserved` و`reserve` | JoudaApp يستخدم `reserved`; Inventory workflow يستخدم `reserve` |
+| تمرير طلبات الإدارة مباشرة إلى `supabase.co` من المتصفح | استخدم `services/supabaseClient.ts` مع `/api/supabase`، وحافظ على JWT المستخدم بعد تسجيل الدخول |
 
 ---
 

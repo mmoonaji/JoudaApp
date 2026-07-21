@@ -1,18 +1,4 @@
-type EnvLike = Record<string, string | undefined>;
-
-const readEnv = (env: EnvLike, ...keys: string[]) => {
-  for (const key of keys) {
-    const value = env[key] || env[`VITE_${key}`];
-    if (value) return value;
-  }
-  return undefined;
-};
-
-const supabaseUrl = (env: EnvLike) => {
-  const value = readEnv(env, 'SUPABASE_URL')?.replace(/\/$/, '');
-  if (!value) throw new Error('Missing SUPABASE_URL');
-  return value;
-};
+import { resolveSupabaseUrl } from '../utils/supabaseProxy';
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -30,7 +16,7 @@ export default {
       if (!sourceUrl) return json({ success: false, message: 'Missing image url' }, 400);
 
       const source = new URL(sourceUrl);
-      const allowedHost = new URL(supabaseUrl(process.env)).host;
+      const allowedHost = new URL(resolveSupabaseUrl(process.env)).host;
       if (source.host !== allowedHost || !source.pathname.startsWith('/storage/v1/object/public/')) {
         return json({ success: false, message: 'Unsupported media source' }, 403);
       }

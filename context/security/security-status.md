@@ -4,6 +4,8 @@
 
 - Frontend uses anon key only.
 - Checkout submissions go through Vercel `/api/orders`, which uses the server-side anon key to call `submit-order`.
+- Browser Supabase Auth/REST/RPC/Storage requests go through Vercel `/api/supabase` to avoid customer-side `supabase.co` blocking. The proxy only allows the configured JoudaApp Supabase host.
+- `/api/supabase` preserves authenticated user JWTs for admin RLS/RPC calls and substitutes the server-side anon key only when the incoming bearer token is missing or matches configured anon compatibility keys.
 - Gemini analysis is routed through the `analyze-product` Edge Function; the frontend must not define or read `VITE_GEMINI_API_KEY`.
 - Privileged writes happen server-side through Edge Functions or live RLS-authenticated admin paths.
 - Admin login uses Supabase Auth.
@@ -17,6 +19,7 @@
 - CORS falls back to `*` when `ALLOWED_ORIGIN` is not set.
 - The previously exposed Gemini key must be rotated manually in Google AI Studio and replaced in Supabase Edge Function secrets.
 - If any Supabase `service_role` key appears in browser logs or Vite env, rotate it immediately and replace the frontend value with anon/publishable only.
+- Vercel env vars used by `/api/orders` and `/api/supabase` must be anon/publishable keys only. `API_KEY` is accepted only as backward-compatible anon; if it contains service_role, rotate/remove it.
 - SECURITY DEFINER functions and grants should be reviewed against live database state.
 
 ## Existing Security Documentation

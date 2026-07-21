@@ -19,9 +19,11 @@ test('order proxy forwards submissions to the existing Supabase Edge Function se
   assert.equal(existsSync(new URL('api/orders.ts', ROOT)), true);
 
   const orderProxy = source('api/orders.ts');
+  const helperCode = source('utils/supabaseProxy.ts');
 
   assert.match(orderProxy, /functions\/v1\/submit-order/);
-  assert.match(orderProxy, /SUPABASE_ANON_KEY/);
-  assert.match(orderProxy, /SUPABASE_ANON/);
+  assert.match(orderProxy, /resolveSupabaseAnonKey/);
+  assert.match(helperCode, /SUPABASE_ANON_KEY/);
+  assert.match(helperCode, /SUPABASE_ANON/);
   assert.doesNotMatch(orderProxy, /SUPABASE_SERVICE_ROLE_KEY/);
 });

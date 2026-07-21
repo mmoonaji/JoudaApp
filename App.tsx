@@ -6,6 +6,7 @@ import { Layout } from './components/layout/Layout';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 
 const AdminLogin = lazy(() => import('./pages/AdminLogin').then(m => ({ default: m.AdminLogin })));
+const AdminPasswordReset = lazy(() => import('./pages/AdminPasswordReset').then(m => ({ default: m.AdminPasswordReset })));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
 const ProductsPageRoute = lazy(() => import('./pages/ProductsPageRoute').then(m => ({ default: m.ProductsPageRoute })));
@@ -84,10 +85,21 @@ const AppContent: React.FC = () => {
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [showExitToast, setShowExitToast] = useState(false);
+
+  const isRecoveryUrl = () => {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    return hash.includes('type=recovery') || search.includes('type=recovery');
+  };
 
   // Check auth session
   useEffect(() => {
+    if (isRecoveryUrl()) {
+      setIsPasswordRecovery(true);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAdmin(!!session);
       if (session?.user) {
@@ -99,6 +111,9 @@ const AppContent: React.FC = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
       setIsAdmin(!!session);
       if (session?.user) {
         Sentry.setUser({ id: session.user.id, email: session.user.email });
@@ -251,6 +266,23 @@ const AppContent: React.FC = () => {
       <div className="fixed inset-0 z-[200] bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full" />
       </div>
+    );
+  }
+
+  if (isPasswordRecovery) {
+    return (
+      <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full" /></div>}>
+        <AdminPasswordReset
+          onDone={() => {
+            setIsPasswordRecovery(false);
+            navigate('/admin/overview', { replace: true });
+          }}
+          onCancel={() => {
+            setIsPasswordRecovery(false);
+            navigate('/admin/login', { replace: true });
+          }}
+        />
+      </Suspense>
     );
   }
 

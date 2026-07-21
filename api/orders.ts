@@ -1,24 +1,4 @@
-type EnvLike = Record<string, string | undefined>;
-
-const readEnv = (env: EnvLike, ...keys: string[]) => {
-  for (const key of keys) {
-    const value = env[key] || env[`VITE_${key}`];
-    if (value) return value;
-  }
-  return undefined;
-};
-
-const supabaseUrl = (env: EnvLike) => {
-  const value = readEnv(env, 'SUPABASE_URL')?.replace(/\/$/, '');
-  if (!value) throw new Error('Missing SUPABASE_URL');
-  return value;
-};
-
-const supabaseAnonKey = (env: EnvLike) => {
-  const value = readEnv(env, 'SUPABASE_ANON_KEY', 'SUPABASE_ANON', 'API_KEY');
-  if (!value) throw new Error('Missing SUPABASE_ANON_KEY');
-  return value;
-};
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../utils/supabaseProxy';
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -32,8 +12,9 @@ export default {
     if (request.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405);
 
     try {
-      const anonKey = supabaseAnonKey(process.env);
-      const upstream = await fetch(`${supabaseUrl(process.env)}/functions/v1/submit-order`, {
+      const anonKey = resolveSupabaseAnonKey(process.env);
+      const supabaseUrl = resolveSupabaseUrl(process.env);
+      const upstream = await fetch(`${supabaseUrl}/functions/v1/submit-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

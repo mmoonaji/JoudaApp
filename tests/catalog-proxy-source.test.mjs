@@ -33,9 +33,11 @@ test('public media URLs are rewritten to the local media proxy', () => {
   const serviceCode = source('services/supabaseService.ts');
   const bannerCode = source('components/home/PromoBanner.tsx');
   const mediaProxyCode = source('utils/mediaProxy.ts');
+  const proxyHelpersCode = source('utils/supabaseProxy.ts');
 
   assert.match(serviceCode, /rewriteSupabaseStorageUrl/);
-  assert.match(mediaProxyCode, /\/api\/media\?url=/);
+  assert.match(mediaProxyCode, /rewriteSupabaseStorageUrl/);
+  assert.match(proxyHelpersCode, /\/api\/media\?url=/);
   assert.match(bannerCode, /fetchBannersFromSupabase/);
   assert.doesNotMatch(bannerCode, /\.from\('banners'\)/);
 });

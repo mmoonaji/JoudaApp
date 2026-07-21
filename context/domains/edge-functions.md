@@ -7,6 +7,8 @@
 | Vercel `/api/catalog` | `api/catalog.ts` | Server-side proxy for public data reads |
 | Vercel `/api/media` | `api/media.ts` | Server-side proxy for Supabase Storage media |
 | Vercel `/api/orders` | `api/orders.ts` | Server-side proxy from checkout to `submit-order` |
+| Vercel `/api/supabase` | `api/supabase.ts` | Server-side proxy for browser Supabase Auth/REST/RPC/Storage requests |
+| Vercel `/api/health` | `api/health.ts` | Deployment/env diagnostic endpoint without secret values |
 | `telegram-bot` | `supabase/functions/telegram-bot/` | Telegram commands/callbacks and Inventory webhooks |
 | `submit-order` | `supabase/functions/submit-order/index.ts` | Create Inventory quotation and JoudaApp order |
 | `sync-products` | `supabase/functions/sync-products/index.ts` | Sync Inventory products to JoudaApp |
@@ -17,6 +19,7 @@
 
 - `telegram-bot`: `verify_jwt=false`; Telegram updates pass without JWT. Non-Telegram webhook/cron requests require `x-webhook-secret`.
 - Vercel `/api/catalog` and `/api/media`: proxy only public reads; they should use anon access and never expose service role.
+- Vercel `/api/supabase`: proxies only the configured JoudaApp Supabase host. It uses the server-side anon key for anonymous calls, preserves non-anon user JWTs for admin requests, rewrites Supabase Storage URLs in REST JSON to `/api/media`, and must never accept arbitrary external hosts.
 - `submit-order`: `verify_jwt=true` in `supabase/config.toml`.
 - Vercel `/api/orders`: uses `SUPABASE_ANON_KEY` server-side to call `submit-order`; do not configure service role in Vercel for this route.
 - `sync-products`: `verify_jwt=false`; checks `WEBHOOK_SECRET`.
@@ -46,6 +49,7 @@
 - Inventory invoice reversal webhooks must keep JoudaApp `customer_orders` in sync with cancelled status.
 - `wf_*` button labels are order-type aware: delivery orders use delivery wording, while `shipping` orders use shipping-company wording.
 - When adding env vars, update `AGENTS.md` and this file.
+- Vercel functions require the full source deployment, not a `dist`-only upload. Verify `/api/health` after deploy.
 
 ## Related Context
 

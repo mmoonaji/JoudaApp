@@ -1,40 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-
-type EnvLike = Record<string, string | undefined>;
-
-const STORAGE_PUBLIC_PATTERN = /^https:\/\/([^.]+)\.supabase\.co\/storage\/v1\/object\/public\/(.+)$/;
-
-const readEnv = (env: EnvLike, ...keys: string[]) => {
-  for (const key of keys) {
-    const value = env[key] || env[`VITE_${key}`];
-    if (value) return value;
-  }
-  return undefined;
-};
-
-const supabaseUrl = (env: EnvLike) => {
-  const value = readEnv(env, 'SUPABASE_URL')?.replace(/\/$/, '');
-  if (!value) throw new Error('Missing SUPABASE_URL');
-  return value;
-};
-
-const supabaseAnonKey = (env: EnvLike) => {
-  const value = readEnv(env, 'SUPABASE_ANON_KEY', 'SUPABASE_ANON', 'API_KEY');
-  if (!value) throw new Error('Missing SUPABASE_ANON_KEY');
-  return value;
-};
-
-const rewriteStorageUrl = (url?: string | null) => {
-  if (!url) return url ?? '';
-  if (url.startsWith('/api/media?url=')) return url;
-  if (!STORAGE_PUBLIC_PATTERN.test(url)) return url;
-  return `/api/media?url=${encodeURIComponent(url)}`;
-};
+import { EnvLike, resolveSupabaseAnonKey, resolveSupabaseUrl, rewriteSupabaseStorageUrl } from '../utils/supabaseProxy';
 
 const normalizeImage = (row: Record<string, unknown>) => ({
   ...row,
-  image_url: rewriteStorageUrl(typeof row.image_url === 'string' ? row.image_url : null),
-  image: rewriteStorageUrl(typeof row.image === 'string' ? row.image : null),
+  image_url: rewriteSupabaseStorageUrl(typeof row.image_url === 'string' ? row.image_url : null),
+  image: rewriteSupabaseStorageUrl(typeof row.image === 'string' ? row.image : null),
 });
 
 const json = (body: unknown, status = 200) =>
@@ -44,7 +14,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 async function loadSection(section: string, env: EnvLike) {
-  const supabase = createClient(supabaseUrl(env), supabaseAnonKey(env), {
+  const supabase = createClient(resolveSupabaseUrl(env), resolveSupabaseAnonKey(env), {
     auth: { persistSession: false },
   });
 

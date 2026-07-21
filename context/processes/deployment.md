@@ -4,6 +4,14 @@
 
 Expected deployment path: GitHub to Vercel.
 
+Deploy the full source tree, not `dist` only. The production app depends on Vercel Functions under `api/`:
+
+- `/api/catalog`
+- `/api/media`
+- `/api/orders`
+- `/api/supabase`
+- `/api/health`
+
 Before shipping frontend changes:
 
 ```bash
@@ -11,6 +19,14 @@ npm run build
 ```
 
 Run additional checks if the changed area has tests or lint requirements.
+
+After Vercel deploy:
+
+1. Open `/api/health` on the production domain and confirm `ok: true`.
+2. Confirm Supabase env presence reports true for `SUPABASE_URL` or `VITE_SUPABASE_URL`, and an anon-key source such as `SUPABASE_ANON_KEY` or `VITE_SUPABASE_ANON_KEY`.
+3. Confirm `SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`, and compatibility `API_KEY` are anon/publishable keys only, never service role.
+4. Hard refresh or use an incognito window when testing because the PWA/service worker can retain old bundles.
+5. Admin login should call `/api/supabase?url=.../auth/v1/token`, not `supabase.co` directly.
 
 ## Android
 

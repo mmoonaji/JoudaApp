@@ -10,8 +10,10 @@ function source(path) {
 
 test('supabase client routes browser requests through the local supabase proxy', () => {
   const clientCode = source('services/supabaseClient.ts');
+  const helperCode = source('utils/supabaseProxy.ts');
 
-  assert.match(clientCode, /\/api\/supabase\?url=/);
+  assert.match(clientCode, /createSupabaseProxyFetch/);
+  assert.match(helperCode, /\/api\/supabase\?url=/);
   assert.match(clientCode, /global:\s*\{\s*fetch:\s*supabaseProxyFetch/);
   assert.doesNotMatch(clientCode, /service_role/);
 });
