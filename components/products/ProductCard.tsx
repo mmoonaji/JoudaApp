@@ -4,6 +4,7 @@ import Lottie, { LottieRefCurrentProps } from 'lottie-react';
 import heartAnimation from '../../public/system-regular-48-favorite-heart-morph-select.json';
 import { Product } from '../../services/supabaseService';
 import { canAddQuantity, getLowStockLabel } from '../../utils/stockUtils';
+import { AppImage } from '../ui/AppImage';
 
 interface ProductCardProps {
   product: Product;
@@ -22,6 +23,7 @@ interface ProductCardProps {
     discountPercentage: number;
   } | null;
   debouncedSearchQuery: string;
+  priority?: boolean;
 }
 
 // Highlight matched text in search results
@@ -56,6 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   justAdded,
   savings,
   debouncedSearchQuery,
+  priority = false,
 }) => {
   const quantity = getItemQuantity(product.name);
   const isAdded = justAdded === product.name;
@@ -146,31 +149,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {renderBadge()}
         </div>
         
-        {product.image ? (
-          <>
-            <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-            <img 
-              src={product.image} 
-              alt={product.name} 
-              loading="lazy" 
-              decoding="async"
-              className="w-full h-full object-contain relative z-10 opacity-0 transition-all duration-700 group-hover:scale-105" 
-              onLoad={(e) => {
-                e.currentTarget.style.opacity = '1';
-                const prev = e.currentTarget.previousElementSibling as HTMLElement;
-                if (prev) prev.style.display = 'none';
-              }}
-            />
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
+        <AppImage
+          src={product.image}
+          alt={product.name}
+          decoding="async"
+          priority={priority}
+          containerClassName="absolute inset-0"
+          className="w-full h-full object-contain relative z-10 group-hover:scale-105 transition-all duration-700"
+          fallback={
+            <div className="w-full h-full flex items-center justify-center">
             {viewMode === 'bakery' ? (
               <Cake className="text-pink-300 w-12 h-12" />
             ) : (
               <ShoppingBag className="text-gray-300 w-12 h-12" />
             )}
-          </div>
-        )}
+            </div>
+          }
+        />
         
         {!product.inStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20 backdrop-blur-[1px]">

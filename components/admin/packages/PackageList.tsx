@@ -2,6 +2,7 @@ import React from 'react';
 import { Edit2, Trash2, Power, PowerOff, Gift, Clock } from 'lucide-react';
 import { Product } from '../../../services/supabaseService';
 import { AdminProductService } from '../../../services/admin/AdminProductService';
+import { AppImage } from '../../ui/AppImage';
 
 interface PackageListProps {
   packages: Product[];
@@ -77,13 +78,12 @@ export const PackageList: React.FC<PackageListProps> = ({
 
             <div className="flex gap-4 items-center">
               <div className="w-16 h-16 rounded-2xl bg-gray-50 dark:bg-gray-800 overflow-hidden shrink-0 border border-gray-100 dark:border-gray-700">
-                {pkg.image_url ? (
-                  <img src={pkg.image_url} alt={pkg.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Gift className="w-6 h-6 text-gray-300 dark:text-gray-600" />
-                  </div>
-                )}
+                <AppImage
+                  src={pkg.image_url}
+                  alt={pkg.name}
+                  className="w-full h-full object-cover"
+                  fallback={<div className="w-full h-full flex items-center justify-center"><Gift className="w-6 h-6 text-gray-300 dark:text-gray-600" /></div>}
+                />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">{pkg.name}</h3>

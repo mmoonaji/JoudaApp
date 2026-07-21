@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChefHat, Clock, Flame, ChevronDown, ChevronUp, ShoppingBag, Plus, AlertCircle, RefreshCw, PackageCheck, PlayCircle, ExternalLink } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { fetchRecipesFromSupabase, Recipe, Product, getYouTubeEmbedId } from '../services/supabaseService';
+import { AppImage } from '../components/ui/AppImage';
 import {
   formatRecipeAddSummary,
   getRecipeRawItems,
@@ -162,7 +163,7 @@ export const RecipesPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-            {recipes.map((recipe) => {
+            {recipes.map((recipe, index) => {
                 const youtubeId = recipe.videoUrl ? getYouTubeEmbedId(recipe.videoUrl) : null;
                 const isExpanded = expandedId === recipe.id;
 
@@ -177,11 +178,13 @@ export const RecipesPage: React.FC = () => {
                     className="w-full p-4 text-right flex items-start gap-4"
                 >
                     <div className={`shrink-0 w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 relative`}>
-                      {recipe.image ? (
-                          <img src={recipe.image} alt={recipe.title} loading="lazy" className="w-full h-full object-cover" />
-                      ) : (
-                         <ChefHat className={`w-8 h-8 ${isExpanded ? 'text-brand-600' : 'text-orange-400'}`} />
-                      )}
+                      <AppImage
+                        src={recipe.image}
+                        alt={recipe.title}
+                        priority={index === 0}
+                        className="w-full h-full object-cover"
+                        fallback={<ChefHat className={`w-8 h-8 ${isExpanded ? 'text-brand-600' : 'text-orange-400'}`} />}
+                      />
                       {/* Video Indicator Icon on thumbnail */}
                       {recipe.videoUrl && (
                           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">

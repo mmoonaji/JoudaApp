@@ -3,6 +3,7 @@ import { Product, fetchProductsFromSupabase } from '../../services/supabaseServi
 import { getCachedProducts, getCacheAge } from '../../services/db';
 import { ProductDetailsModal } from '../modals/ProductDetailsModal';
 import { calculatePackageSavings } from '../products/utils';
+import { AppImage } from '../ui/AppImage';
 
 export const HomePackagesCarousel: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -133,7 +134,7 @@ export const HomePackagesCarousel: React.FC = () => {
           className="flex gap-3.5 overflow-x-auto pb-4 pt-1 px-1 -mx-1 scrollbar-hide snap-x snap-mandatory scroll-smooth"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {featuredPackages.map((pkg) => {
+          {featuredPackages.map((pkg, index) => {
             const savings = calculatePackageSavings(pkg, products);
             
             return (
@@ -169,19 +170,14 @@ export const HomePackagesCarousel: React.FC = () => {
 
                 {/* Image Side (Left) */}
                 <div className="w-[84px] h-[84px] shrink-0 relative flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100/50 dark:border-gray-700 overflow-hidden shadow-inner">
-                  {pkg.image ? (
-                    <img
-                      src={pkg.image}
-                      alt={pkg.name}
-                      loading="lazy"
-                      decoding="async"
-                      width={84}
-                      height={84}
-                      className="w-full h-full object-cover animate-fade-in"
-                    />
-                  ) : (
-                    <span className="text-2xl">🎁</span>
-                  )}
+                  <AppImage
+                    src={pkg.image}
+                    alt={pkg.name}
+                    decoding="async"
+                    priority={index === 0}
+                    className="w-full h-full object-cover animate-fade-in"
+                    fallback={<span className="text-2xl">🎁</span>}
+                  />
                 </div>
               </div>
             );
@@ -231,4 +227,3 @@ export const HomePackagesCarousel: React.FC = () => {
     </>
   );
 };
-

@@ -3,6 +3,7 @@ import { ChefHat, Save, Edit, Trash2 } from 'lucide-react';
 import { Recipe } from '../../services/supabaseService';
 import { AdminContentService } from '../../services/admin/AdminContentService';
 import { ImageUploadInput } from './ImageUploadInput';
+import { AppImage } from '../ui/AppImage';
 
 interface RecipeManagerProps {
   recipes: Recipe[];
@@ -321,11 +322,12 @@ export const RecipeManager: React.FC<RecipeManagerProps> = ({
           {recipes.map(r => (
             <div key={r.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/80 flex flex-col justify-between">
               <div className="w-full aspect-[16/10] relative bg-white overflow-hidden">
-                {r.image_url || r.image ? (
-                  <img src={r.image_url || r.image} alt={r.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-orange-50/50"><ChefHat className="text-orange-350 w-12 h-12" /></div>
-                )}
+                <AppImage
+                  src={r.image_url || r.image}
+                  alt={r.title}
+                  className="w-full h-full object-cover"
+                  fallback={<div className="w-full h-full flex items-center justify-center bg-orange-50/50"><ChefHat className="text-orange-350 w-12 h-12" /></div>}
+                />
               </div>
               
               <div className="p-3 flex items-center justify-between gap-3">

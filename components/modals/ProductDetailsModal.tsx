@@ -9,6 +9,7 @@ import { useScrollLock, useBackButton } from '../../hooks/index';
 import { ProductRequestModal } from './ProductRequestModal';
 import { getCachedProducts } from '../../services/db';
 import { canAddQuantity, getLowStockLabel } from '../../utils/stockUtils';
+import { AppImage } from '../ui/AppImage';
 
 interface ProductDetailsModalProps {
   product: Product;
@@ -128,26 +129,18 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       >
         
         <div className="relative w-full h-64 sm:h-72 bg-white shrink-0 p-6 flex items-center justify-center">
-          {product.image ? (
-             <>
-               <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-               <img 
-                 src={product.image} 
-                 alt={product.name} 
-                 loading="lazy"
-                 className="w-full h-full object-contain relative z-10 opacity-0 transition-opacity duration-500"
-                 onLoad={(e) => {
-                   e.currentTarget.style.opacity = '1';
-                   const prev = e.currentTarget.previousElementSibling as HTMLElement;
-                   if (prev) prev.style.display = 'none';
-                 }}
-               />
-             </>
-          ) : (
-             <div className="w-full h-full flex items-center justify-center text-gray-300">
+          <AppImage
+            src={product.image}
+            alt={product.name}
+            priority
+            containerClassName="absolute inset-0 p-6"
+            className="w-full h-full object-contain relative z-10 transition-opacity duration-500"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center text-gray-300">
                 <ShoppingBag className="w-20 h-20" />
-             </div>
-          )}
+              </div>
+            }
+          />
           
           {/* Top Actions Overlay */}
           <div className="absolute top-0 left-0 right-0 p-4 pt-6 flex justify-between items-start z-10">
@@ -295,13 +288,15 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                            onClick={() => onOpenRecipe(product.name)}
                            className="w-full bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 p-3 flex items-center gap-3 text-right"
                          >
-                            <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-700 shrink-0 overflow-hidden">
-                               {recipe.image ? (
-                                   <img src={recipe.image} alt={recipe.title} loading="lazy" className="w-full h-full object-cover" />
-                               ) : (
-                                  <div className="w-full h-full flex items-center justify-center"><ChefHat className="w-6 h-6 text-orange-300" /></div>
-                               )}
-                            </div>
+                             <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-700 shrink-0 overflow-hidden">
+                                <AppImage
+                                   src={recipe.image}
+                                   alt={recipe.title}
+                                   loading="lazy"
+                                   className="w-full h-full object-cover"
+                                   fallback={<div className="w-full h-full flex items-center justify-center"><ChefHat className="w-6 h-6 text-orange-300" /></div>}
+                                />
+                             </div>
                             <div className="flex-1 min-w-0">
                                <h4 className="font-bold text-xs text-gray-800 dark:text-gray-100 truncate">{recipe.title}</h4>
                                <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400 mt-1">

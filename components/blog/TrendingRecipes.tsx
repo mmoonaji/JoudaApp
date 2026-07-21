@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, ChefHat, ArrowLeft } from 'lucide-react';
 import { fetchRecipesFromSupabase, Recipe } from '../../services/supabaseService';
+import { AppImage } from '../ui/AppImage';
 
 const RECIPE_IDX_KEY = 'jouda_recipe_idx_v2';
 const LEGACY_RECIPE_LIST_KEY = 'jouda_recipe_list_v2';
@@ -66,7 +67,7 @@ export const TrendingRecipes: React.FC = () => {
         className="flex gap-3 overflow-x-auto pb-6 pt-1 px-1 -mx-1 scrollbar-hide snap-x snap-mandatory scroll-smooth"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {recipes.map((recipe) => {
+        {recipes.map((recipe, index) => {
           return (
             <div
               key={recipe.id}
@@ -75,19 +76,14 @@ export const TrendingRecipes: React.FC = () => {
             >
               {/* Image */}
               <div className="relative h-40 w-full bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-[1.5rem]">
-                {recipe.image ? (
-                  <img
-                    src={recipe.image}
-                    alt={recipe.title}
-                    loading="lazy"
-                    draggable={false}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center">
-                    <ChefHat className="w-10 h-10 text-orange-300 dark:text-orange-500/50" />
-                  </div>
-                )}
+                <AppImage
+                  src={recipe.image}
+                  alt={recipe.title}
+                  priority={index === 0}
+                  draggable={false}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  fallback={<div className="w-full h-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center"><ChefHat className="w-10 h-10 text-orange-300 dark:text-orange-500/50" /></div>}
+                />
                 {recipe.videoUrl && (
                   <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm rounded-full p-1">
                     <div className="w-4 h-4 flex items-center justify-center">

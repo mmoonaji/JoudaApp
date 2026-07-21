@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, X, Loader2, ImagePlus } from 'lucide-react';
 import { AdminContentService } from '../../services/admin/AdminContentService';
+import { AppImage } from '../ui/AppImage';
 
 interface ImageUploadInputProps {
   value: string;
@@ -60,7 +61,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({ value, onCha
       
       {value ? (
         <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-50 border border-gray-200 group">
-          <img src={value} alt="Preview" className="w-full h-full object-cover" />
+          <AppImage src={value} alt="Preview" className="w-full h-full object-cover" showLoader={false} />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <button 
               type="button" 

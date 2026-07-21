@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Clock, Flame, ChefHat, Sparkles, Heart, Play, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { fetchRecipesFromSupabase, Recipe } from '../../services/supabaseService';
+import { AppImage } from '../ui/AppImage';
 import {
   formatRecipeAddSummary,
   getRecipeRawItems,
@@ -218,20 +219,15 @@ export const RecipeOfTheDay: React.FC = () => {
         className="w-full relative h-[320px] rounded-3xl overflow-hidden shadow-lg group cursor-pointer border border-gray-100 dark:border-gray-800 select-none transition-shadow hover:shadow-xl"
       >
         {/* Background Image */}
-        {recipe.image ? (
-          <img
-            src={recipe.image}
-            alt={recipe.title}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 pointer-events-none"
-          />
-        ) : (
-          <div className="w-full h-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
-            <ChefHat className="w-20 h-20 text-orange-300 dark:text-orange-500/50" />
-          </div>
-        )}
+        <AppImage
+          src={recipe.image}
+          alt={recipe.title}
+          decoding="async"
+          priority
+          draggable={false}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 pointer-events-none"
+          fallback={<div className="w-full h-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center"><ChefHat className="w-20 h-20 text-orange-300 dark:text-orange-500/50" /></div>}
+        />
 
         {/* Video Play Overlay */}
         {hasVideo && (

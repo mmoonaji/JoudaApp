@@ -3,6 +3,7 @@ import { BookOpen, Save, Edit, Trash2 } from 'lucide-react';
 import { Article } from '../../services/supabaseService';
 import { AdminContentService } from '../../services/admin/AdminContentService';
 import { ImageUploadInput } from './ImageUploadInput';
+import { AppImage } from '../ui/AppImage';
 
 interface ArticleManagerProps {
   articles: Article[];
@@ -175,11 +176,12 @@ export const ArticleManager: React.FC<ArticleManagerProps> = ({
           {articles.map(a => (
             <div key={a.id} className="bg-gray-50 dark:bg-gray-850 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/80 flex flex-col justify-between">
               <div className="w-full aspect-[2/1] relative bg-white overflow-hidden">
-                {a.image_url || a.image ? (
-                  <img src={a.image_url || a.image} alt={a.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-850"><BookOpen className="text-gray-300 w-12 h-12" /></div>
-                )}
+                <AppImage
+                  src={a.image_url || a.image}
+                  alt={a.title}
+                  className="w-full h-full object-cover"
+                  fallback={<div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-850"><BookOpen className="text-gray-300 w-12 h-12" /></div>}
+                />
               </div>
               
               <div className="p-3 flex items-center justify-between gap-3">

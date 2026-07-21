@@ -49,6 +49,9 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 | 2026-07-21 | Media and uploads moved direct | Public storage URLs now stay raw Supabase URLs and admin image uploads return direct `public-assets` URLs instead of `/api/media` |
 | 2026-07-21 | Checkout order submission moved direct | Frontend checkout now invokes `submit-order` through the Supabase client instead of `/api/orders`; the Vercel route was removed in phase 5 |
 | 2026-07-21 | Catalog/media proxy routes removed | Vercel `/api/catalog`, `/api/media`, and shared rewrite helpers were deleted after direct Supabase access proved stable |
+| 2026-07-21 | Vercel Web Analytics mounted | `index.tsx` now includes `<Analytics />` from `@vercel/analytics/react` so Vercel can collect page views after deployment |
+| 2026-07-21 | Shared image fallback added | Key customer/admin image surfaces now use `components/ui/AppImage.tsx` for loading state and broken-image fallback |
+| 2026-07-22 | Image loading priority improved | `AppImage` now supports high-priority eager loading for first visible customer images while keeping the rest lazy with a clearer skeleton |
 
 ## Known Risks
 
@@ -70,5 +73,5 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 ---
 
-Last updated: 2026-07-21 by Codex.
+Last updated: 2026-07-22 by Codex.
 

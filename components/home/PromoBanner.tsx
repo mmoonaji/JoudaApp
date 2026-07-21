@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCachedProducts } from '../../services/db';
 import { fetchBannersFromSupabase } from '../../services/supabaseService';
+import { AppImage } from '../ui/AppImage';
 
 interface Banner {
   id: string;
@@ -157,24 +158,22 @@ export const PromoBanner: React.FC = () => {
         {banners.map((b, i) => {
           const isActive = i === currentIndex;
           return (
-            <img
+            <AppImage
               key={b.id}
               src={b.image_url}
               alt={b.title || 'إعلان'}
               decoding="async"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
+              priority={isActive}
+              containerClassName="absolute inset-0"
+              containerStyle={{
                 opacity: isActive ? 1 : 0,
                 transform: isActive ? 'scale(1)' : 'scale(1.08)',
                 transition: 'opacity 1s ease-in-out, transform 6s cubic-bezier(0.25, 1, 0.5, 1)',
                 pointerEvents: 'none',
                 zIndex: isActive ? 2 : 1,
               }}
-              loading={i === 0 ? 'eager' : 'lazy'}
+              className="w-full h-full object-cover"
+              fallback={<div className="w-full h-full bg-slate-900" />}
             />
           );
         })}

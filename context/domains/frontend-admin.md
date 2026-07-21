@@ -11,6 +11,7 @@ The frontend is the customer app and admin dashboard. It reads public data from 
 | `services/supabaseClient.ts` | Supabase browser client and phone-header client helper |
 | `services/supabaseService.ts` | Public app data access and order submission |
 | `pages/AdminLogin.tsx` | Supabase Auth email/password login |
+| `components/ui/AppImage.tsx` | Shared image display with loader and broken-image fallback |
 | `services/admin/` | Admin writes for products, content, settings |
 | `components/admin/` | Admin UI components |
 
@@ -20,7 +21,10 @@ The frontend is the customer app and admin dashboard. It reads public data from 
 - Password recovery links are handled in-app: `PASSWORD_RECOVERY` or `type=recovery` opens a dedicated reset-password screen that calls `supabase.auth.updateUser({ password })`.
 - Public catalog reads in `services/supabaseService.ts` now use the browser Supabase client directly instead of `/api/catalog`.
 - Public media URLs stay raw Supabase Storage URLs, and admin uploads return direct `public-assets` URLs instead of `/api/media`.
+- Customer and admin image surfaces should use `AppImage` so broken URLs fall back instead of leaving skeletons or blank cells.
+- Customer-facing first visible images should pass `priority` to `AppImage`; non-priority images default to lazy loading.
 - Checkout order submission now calls `supabase.functions.invoke('submit-order')` directly; the legacy `/api/orders` route has been removed.
+- Vercel Web Analytics is mounted in `index.tsx` through `@vercel/analytics/react`.
 - Frontend env vars are `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 - Admin product changes can update JoudaApp directly, and Inventory-owned fields through `update-inventory`.
 - Content managers write recipes, articles, banners, FAQ, and uploaded images.

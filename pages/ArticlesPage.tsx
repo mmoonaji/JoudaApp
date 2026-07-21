@@ -3,6 +3,7 @@ import { BookOpen, Calendar, Search, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchArticlesFromSupabase, Article } from '../services/supabaseService';
 import { ArticleModal } from '../components/modals/ArticleModal';
+import { AppImage } from '../components/ui/AppImage';
 
 export const ArticlesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -83,25 +84,24 @@ export const ArticlesPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
-            {filteredArticles.map((article) => (
+            {filteredArticles.map((article, index) => (
               <div 
                 key={article.id}
                 onClick={() => setSelectedArticle(article)}
                 className="bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group active:scale-[0.98] flex flex-col"
               >
                 <div className="relative aspect-[4/3] w-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
-                  {article.image ? (
-                    <img 
-                      src={article.image} 
-                      alt={article.title} 
-                      loading="lazy" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-brand-50 dark:bg-gray-900/50">
-                      <BookOpen className="w-8 h-8 md:w-12 md:h-12 text-brand-200 dark:text-gray-700" />
-                    </div>
-                  )}
+                  <AppImage
+                    src={article.image}
+                    alt={article.title}
+                    priority={index === 0}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    fallback={
+                      <div className="w-full h-full flex items-center justify-center bg-brand-50 dark:bg-gray-900/50">
+                        <BookOpen className="w-8 h-8 md:w-12 md:h-12 text-brand-200 dark:text-gray-700" />
+                      </div>
+                    }
+                  />
                   {/* Subtle overlay only on hover for image protection */}
                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>

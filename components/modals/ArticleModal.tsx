@@ -6,6 +6,7 @@ import remarkBreaks from 'remark-breaks';
 import { X, Calendar, User, Share2 } from 'lucide-react';
 import { Article } from '../../services/supabaseService';
 import { useScrollLock, useBackButton } from '../../hooks/index';
+import { AppImage } from '../ui/AppImage';
 
 interface ArticleModalProps {
   article: Article;
@@ -84,18 +85,13 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose }) 
         {/* Fixed Header: Image + Controls */}
         <div className="shrink-0 flex flex-col z-10 relative">
           <div className={`relative h-44 sm:h-52 mx-4 mt-4 bg-gray-200 dark:bg-gray-800 transition-colors duration-500 rounded-[2rem] overflow-hidden shadow-sm`}>
-            {article.image ? (
-              <img 
-                src={article.image} 
-                alt={article.title} 
-                loading="lazy"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center">
-                 <span className="text-brand-300 font-black text-4xl opacity-50">جوده</span>
-              </div>
-            )}
+            <AppImage
+              src={article.image}
+              alt={article.title}
+              loading="lazy"
+              className="w-full h-full object-cover"
+              fallback={<div className="w-full h-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center"><span className="text-brand-300 font-black text-4xl opacity-50">جوده</span></div>}
+            />
             
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
           </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Image as ImageIcon, Save, Edit, Trash2 } from 'lucide-react';
 import { AdminContentService } from '../../services/admin/AdminContentService';
 import { ImageUploadInput } from './ImageUploadInput';
+import { AppImage } from '../ui/AppImage';
 
 interface Banner {
   id: string;
@@ -193,7 +194,11 @@ export const BannerManager: React.FC<BannerManagerProps> = ({
           {banners.map(b => (
             <div key={b.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/80 flex flex-col justify-between">
               <div className="w-full aspect-[2.2/1] relative bg-white overflow-hidden">
-                <img src={b.image_url} alt={b.title} className="w-full h-full object-cover" />
+                <AppImage
+                  src={b.image_url}
+                  alt={b.title}
+                  className="w-full h-full object-cover"
+                />
                 {!b.is_active && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[1px]">
                     <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg">غير معروض</span>
