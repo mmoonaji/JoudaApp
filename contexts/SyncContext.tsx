@@ -64,20 +64,24 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (e) {
       console.error('Sync failed:', e);
     } finally {
-      setIsSyncing(false);
       await updatePendingCount();
+      setIsSyncing(false);
     }
   }, [isSyncing, updatePendingCount]);
 
-  // Listen for online events
+  // Listen for online and pending-order events
   useEffect(() => {
     const handleOnline = () => {
       triggerSync();
     };
 
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [triggerSync]);
+    window.addEventListener('jouda:pending-orders-changed', updatePendingCount);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('jouda:pending-orders-changed', updatePendingCount);
+    };
+  }, [triggerSync, updatePendingCount]);
 
   // Check pending count on mount and periodically
   useEffect(() => {

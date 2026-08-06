@@ -232,6 +232,11 @@ export const INV_ACTIONS: Record<string, Record<string, ActionDef>> = {
       label: 'حجز',
       emoji: '📦',
     },
+    prepare: {
+      nextStatus: 'prepare',
+      label: 'تجهيز',
+      emoji: '👨‍🍳',
+    },
   },
   reserve: {
     prepare: {
@@ -249,6 +254,11 @@ export const INV_ACTIONS: Record<string, Record<string, ActionDef>> = {
     },
   },
   prepare: {
+    reserve: {
+      nextStatus: 'prepare',
+      label: 'حجز',
+      emoji: '📦',
+    },
     deliver: {
       nextStatus: 'deliver',
       label: 'توصيل',

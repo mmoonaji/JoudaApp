@@ -336,10 +336,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const orderId = await addPendingOrder(fullPayload);
         setPendingOrdersCount((prev) => prev + 1);
+        window.dispatchEvent(new Event('jouda:pending-orders-changed'));
         clearCart();
         return {
           success: true,
-          message: 'تم حفظ الطلب وسيتم إرساله تلقائياً عند عودة الإنترنت',
+          message: 'حفظنا طلبك. الإنترنت مقطوع حالياً، وبنرسله تلقائياً أول ما ترجع الشبكة',
           order_number: orderId,
         };
       } catch (e) {

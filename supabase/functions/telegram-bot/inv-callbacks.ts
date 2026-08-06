@@ -114,7 +114,7 @@ export async function handleInvCallback(
   // ── 1. Fetch invoice ──
   const { data: invoice } = await inventory
     .from('invoices')
-    .select('id, workflow_status, is_voided, status, payment_method')
+    .select('id, workflow_status, is_voided, status, payment_method, collector_id')
     .eq('id', invoiceId)
     .single();
 
@@ -133,6 +133,20 @@ export async function handleInvCallback(
       token,
       callback.id,
       '⚠️ الفاتورة غير مرحّلة',
+      true,
+    );
+    return;
+  }
+
+  if (
+    isCashPayment(invoice.payment_method) &&
+    !['reserve', 'reverse', 'undo', 'abort', 'prepare'].includes(action) &&
+    !invoice.collector_id
+  ) {
+    await answerCallback(
+      token,
+      callback.id,
+      '⚠️ يجب إسناد الطلب للمندوب (حجز) أولاً قبل هذا الإجراء لضمان تتبع العهدة المالية.',
       true,
     );
     return;
@@ -212,13 +226,21 @@ export async function handleInvCallback(
 
   // ── 5. Normal action: update workflow_status (optimistic lock) ──
   const nowIso = new Date().toISOString();
+  const updatePayload: Record<string, any> = {
+    workflow_status: actionDef.nextStatus,
+    workflow_updated_by: userId,
+    workflow_updated_at: nowIso,
+  };
+  if (action === 'deposit' && !isCashPayment(invoice.payment_method)) {
+    updatePayload.is_settled = true;
+    updatePayload.settled_at = nowIso;
+    updatePayload.settled_by = env.systemUserId();
+    updatePayload.updated_at = nowIso;
+  }
+
   const { data: updatedInvoice, error: updateErr } = await inventory
     .from('invoices')
-    .update({
-      workflow_status: actionDef.nextStatus,
-      workflow_updated_by: userId,
-      workflow_updated_at: nowIso,
-    })
+    .update(updatePayload)
     .eq('id', invoiceId)
     .eq('workflow_status', currentWf) // Optimistic lock
     .select('id')

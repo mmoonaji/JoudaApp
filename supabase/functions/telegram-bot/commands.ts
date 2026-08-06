@@ -5,6 +5,7 @@
 import { sendMessage } from './telegram.ts';
 import { getClients } from './db.ts';
 import { fmtDate } from './format.ts';
+import { env, getInventoryUserId } from './config.ts';
 
 const APP_ACTIVE_STATUSES = ['submitted', 'confirmed', 'reserved', 'preparing', 'delivered'];
 const POS_ACTIVE_STATUSES = ['pending', 'reserve', 'prepare', 'deliver', 'paid'];
@@ -53,15 +54,25 @@ function minutesSince(createdAt?: string | null): string {
 
 // ─── /help, /start ──────────────────────────────────────
 
-export async function handleHelp(token: string, chatId: string) {
-  const text = `\
+export async function handleHelp(token: string, chatId: string, isAdminUser = false) {
+  let text = '';
+  if (isAdminUser) {
+    text = `\
 <b>بوت جوده — لوحة الإدارة</b>
 
 /today — ملخص اليوم والمبيعات
 /queue — حالة الطلبات المفتوحة والاختناقات
 /money — الكاش والعهد المالية
+/my — ملخصك الشخصي والعهدة
 
-<i>الأوامر النصية متاحة للإدارة فقط.</i>`;
+<i>الأوامر النصية متاحة للإدارة والمناديب المربوطين.</i>`;
+  } else {
+    text = `\
+<b>بوت جوده — لوحة المندوب</b>
+
+/my — ملخصك الشخصي (عهدة كاش + طلبات معلقة + مبالغ توصيل)
+/help — عرض الأوامر المتاحة`;
+  }
 
   await sendMessage(token, chatId, text);
 }
@@ -308,6 +319,85 @@ ${driverLines}
 • مدفوعة ولم تودع: <b>${paidNotDeposited}</b>
 
 📅 <b>آخر تحديث:</b> <code>${fmtDate()}</code>`;
+
+  await sendMessage(token, chatId, text);
+}
+
+// ─── /my (Driver self-service report) ────────────────────
+
+export async function handleMy(token: string, chatId: string) {
+  const { inventory } = getClients();
+  const inventoryUserId = getInventoryUserId(chatId);
+  if (!inventoryUserId) {
+    await sendMessage(token, chatId, '⚠️ حساب التليجرام الخاص بك غير مربوط بمندوب في النظام.');
+    return;
+  }
+
+  // Fetch driver name
+  const { data: driverUser } = await inventory
+    .from('users')
+    .select('name')
+    .eq('id', inventoryUserId)
+    .single();
+
+  const driverName = driverUser?.name || 'مندوب جودة';
+
+  // Fetch unsettled invoices for this collector
+  const { data: invoices, error } = await inventory
+    .from('invoices')
+    .select('id, workflow_status, total_amount, subtotal, discount, delivery_fee, payment_method')
+    .eq('collector_id', inventoryUserId)
+    .eq('is_settled', false)
+    .eq('is_voided', false);
+
+  if (error) {
+    console.error('Error fetching driver invoices:', error);
+    await sendMessage(token, chatId, '⚠️ حدث خطأ أثناء جلب بياناتك المالية.');
+    return;
+  }
+
+  let cashToDeposit = 0;
+  let paidCount = 0;
+  let deliveringCount = 0;
+  let deliveredNotPaidCount = 0;
+  let deliveredNotPaidAmount = 0;
+  let totalDeliveryFees = 0;
+
+  for (const inv of invoices || []) {
+    const cashAmount = inv.payment_method === 'CASH'
+      ? Math.max((inv.subtotal ?? ((inv.total_amount || 0) - (inv.delivery_fee || 0))) - (inv.discount || 0), 0)
+      : 0;
+
+    const deliveryFee = inv.delivery_fee || 0;
+    totalDeliveryFees += deliveryFee;
+
+    if (inv.workflow_status === 'paid') {
+      cashToDeposit += cashAmount;
+      paidCount++;
+    } else if (inv.workflow_status === 'deliver') {
+      deliveredNotPaidCount++;
+      deliveredNotPaidAmount += cashAmount;
+    } else if (['reserve', 'prepare'].includes(inv.workflow_status)) {
+      deliveringCount++;
+    }
+  }
+
+  const text = `\
+👤 <b>الملخص الشخصي للمندوب: ${driverName}</b>
+
+🏍️ <b>الطلبات المعلقة:</b>
+• طلبات قيد التجهيز/التوصيل: <b>${deliveringCount}</b> طلب
+• تم تسليمها (بانتظار التحصيل): <b>${deliveredNotPaidCount}</b> طلب (بإجمالي كاش: <b>${money(deliveredNotPaidAmount)}</b>)
+
+💵 <b>العهد المالية والتوريد:</b>
+• كاش بحوزتك مطلوب توريده: <b>${money(cashToDeposit)}</b> (من <b>${paidCount}</b> طلب)
+
+🚚 <b>أجور التوصيل:</b>
+• إجمالي رسوم التوصيل لعهدتك الحالية: <b>${money(totalDeliveryFees)}</b>
+
+📅 <b>تاريخ الاستعلام:</b> <code>${fmtDate()}</code>
+
+<i>نرجو توريد المبالغ المحصلة للمشرف أولاً بأول لتصفية عهدتك.</i>`;
 
   await sendMessage(token, chatId, text);
 }

@@ -296,6 +296,29 @@ export async function handleWfCallback(
     }
   }
 
+  // ── 5.4 Guard: Prevent proceeding without a collector for CASH orders ──
+  if (
+    isCashPayment(order.payment_method) &&
+    !['reserve', 'reject', 'cancel', 'reverse', 'undo', 'abort', 'approve', 'prepare'].includes(action) &&
+    order.quotation_id
+  ) {
+    const { data: inv } = await inventory
+      .from('invoices')
+      .select('collector_id')
+      .eq('id', order.quotation_id)
+      .maybeSingle();
+
+    if (!inv || !inv.collector_id) {
+      await answerCallback(
+        token,
+        callback.id,
+        '⚠️ يجب استلام الطلب أولاً من قبل المندوب (حجز) لضمان تتبع العهدة المالية.',
+        true,
+      );
+      return;
+    }
+  }
+
   // ── 5.5 Reserve → assign cash invoice to collector and create COLLECTION entry ──
   if (action === 'reserve') {
     const assigned = await assignCashOrderToCollector(
@@ -347,11 +370,18 @@ export async function handleWfCallback(
   // ── 6.5 Sync status to Inventory workflow_status ──
   if (order.quotation_id && actionDef.nextStatus !== 'cancelled') {
     if (APP_TO_INV_STATUS_MAP[actionDef.nextStatus]) {
-      await inventory.from('invoices').update({
+      const invPayload: Record<string, any> = {
         workflow_status: APP_TO_INV_STATUS_MAP[actionDef.nextStatus],
         workflow_updated_by: userId,
         workflow_updated_at: nowIso,
-      }).eq('id', order.quotation_id);
+      };
+      if (action === 'deposit' && !isCashPayment(order.payment_method)) {
+        invPayload.is_settled = true;
+        invPayload.settled_at = nowIso;
+        invPayload.settled_by = env.systemUserId();
+        invPayload.updated_at = nowIso;
+      }
+      await inventory.from('invoices').update(invPayload).eq('id', order.quotation_id);
     }
   }
 

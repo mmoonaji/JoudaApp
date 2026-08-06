@@ -17,10 +17,10 @@
 //   incoming.ts  → DB webhook (new/reversed invoices)
 
 import { answerCallback, sendMessage } from './telegram.ts';
-import { env } from './config.ts';
+import { env, getInventoryUserId } from './config.ts';
 import { handleInvCallback } from './inv-callbacks.ts';
 import { handleNewInvoice, handleReversedInvoice } from './incoming.ts';
-import { handleHelp, handleToday, handleQueue, handleMoney } from './commands.ts';
+import { handleHelp, handleToday, handleQueue, handleMoney, handleMy } from './commands.ts';
 
 // ─── Main Server ────────────────────────────────────────
 
@@ -156,8 +156,11 @@ Deno.serve(async (req: Request) => {
       return new Response('OK');
     }
 
-    // Private text commands are admin-only.
-    if (!env.adminIds().includes(chatId)) {
+    // Private text commands are admin-only or driver-only.
+    const isDriver = !!env.allChatIds().includes(chatId) || !!getInventoryUserId(chatId);
+    const isAdminUser = env.adminIds().includes(chatId);
+
+    if (!isAdminUser && !isDriver) {
       await sendMessage(botToken, chatId, 'هذا البوت خاص بإدارة جوده.');
       return new Response('OK');
     }
@@ -171,18 +174,34 @@ Deno.serve(async (req: Request) => {
     switch (command) {
       case '/start':
       case '/help':
-        await handleHelp(botToken, chatId);
+        await handleHelp(botToken, chatId, isAdminUser);
+        break;
+
+      case '/my':
+        await handleMy(botToken, chatId);
         break;
 
       case '/today':
+        if (!isAdminUser) {
+          await sendMessage(botToken, chatId, '🔒 هذا الأمر للمدير فقط.');
+          break;
+        }
         await handleToday(botToken, chatId);
         break;
 
       case '/queue':
+        if (!isAdminUser) {
+          await sendMessage(botToken, chatId, '🔒 هذا الأمر للمدير فقط.');
+          break;
+        }
         await handleQueue(botToken, chatId);
         break;
 
       case '/money':
+        if (!isAdminUser) {
+          await sendMessage(botToken, chatId, '🔒 هذا الأمر للمدير فقط.');
+          break;
+        }
         await handleMoney(botToken, chatId);
         break;
 
