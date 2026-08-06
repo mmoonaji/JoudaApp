@@ -18,7 +18,6 @@
 
 import { answerCallback, sendMessage } from './telegram.ts';
 import { env } from './config.ts';
-import { handleWfCallback } from './wf-callbacks.ts';
 import { handleInvCallback } from './inv-callbacks.ts';
 import { handleNewInvoice, handleReversedInvoice } from './incoming.ts';
 import { handleHelp, handleToday, handleQueue, handleMoney } from './commands.ts';
@@ -124,7 +123,12 @@ Deno.serve(async (req: Request) => {
 
       // Route by prefix
       if (cbData.startsWith('wf_')) {
-        await handleWfCallback(botToken, cbChatId, cb);
+        await answerCallback(
+          botToken,
+          cb.id,
+          'تتم إدارة الطلب من نظام المخزون',
+          true,
+        );
       } else if (cbData.startsWith('inv_')) {
         await handleInvCallback(botToken, cbChatId, cb);
       } else {

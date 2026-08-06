@@ -377,15 +377,11 @@ ${notesLine}${subtotalLine}${deliveryLine}
 `.trim();
 }
 
-async function dispatchTelegramNotification(message: string, orderId: string) {
+async function dispatchTelegramNotification(message: string) {
   const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
   const chatIdsStr = Deno.env.get('TELEGRAM_ADMIN_CHAT_ID');
   if (!botToken || !chatIdsStr) return;
 
-  const inline_keyboard: any[][] = [
-    [{ text: '✅ اعتماد الطلب (إرسال للجروب)', callback_data: `wf_approve_${orderId}` }],
-    [{ text: '❌ رفض وإلغاء الطلب', callback_data: `wf_reject_${orderId}` }]
-  ];
   const adminIds = chatIdsStr.split(',').map(id => id.trim()).filter(id => id && !id.startsWith('-'));
 
   for (const chatId of adminIds) {
@@ -393,7 +389,7 @@ async function dispatchTelegramNotification(message: string, orderId: string) {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML', reply_markup: { inline_keyboard } }),
+        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
       });
     } catch (e) {
       console.error(`Telegram notification error for ${chatId}:`, e);
@@ -524,7 +520,7 @@ Deno.serve(async (req: Request) => {
       };
 
       const tgMessage = buildTelegramMessage(notificationData);
-      const notifyPromise = dispatchTelegramNotification(tgMessage, orderRecord.id).catch(err => {
+      const notifyPromise = dispatchTelegramNotification(tgMessage).catch(err => {
         console.error('Error sending Telegram notification:', err);
       });
 
