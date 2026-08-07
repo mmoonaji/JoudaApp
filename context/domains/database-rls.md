@@ -11,6 +11,7 @@ Capture the expected database access model. Live Supabase state may differ from 
 | Public product/content reads | `anon` and `authenticated` can read active/public data |
 | Customer orders | Sensitive writes through Edge Functions with service role |
 | Order reads | Service role and customer phone-header policies where present |
+| Package snapshots | `order_items.package_items_snapshot` is server-written JSONB; the schema change adds no grants or policies and existing rows keep the empty-array default |
 | Admin dashboard | Supabase Auth session, then direct writes/RPCs depending on table |
 | Settings | Sensitive settings through RPC/service role; public view exposes safe fields |
 | Sync logs | Written by service role, read by admin dashboard |

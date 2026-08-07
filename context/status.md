@@ -16,6 +16,7 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 | Date | Change | Impact |
 |---|---|---|
+| 2026-08-07 | Historical package contents added to submitted order lines | New orders preserve component names and final quantities in `order_items.package_items_snapshot`; Telegram uses the same snapshot, while old orders remain unchanged |
 | 2026-06-26 | `AGENTS.md` rewritten as concise system reference | Agents have a cleaner entry point with fewer stale claims |
 | 2026-06-26 | `context-network` bootstrapped | Project now has persistent context files for status, decisions, domains, processes, and security |
 | 2026-06-26 | Admin/live schema caveats added to docs | Agents are warned that migrations may not fully represent live RLS/schema |

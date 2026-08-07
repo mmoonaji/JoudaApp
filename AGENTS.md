@@ -131,7 +131,7 @@ Frontend → Supabase direct للكتالوج والوسائط والإعداد�
 → بيانات العرض + الصور + إرسال الطلب
 → submit-order
 → Inventory RPC: create_quotation
-→ JoudaApp: customer_orders + order_items باستخدام service_role
+→ JoudaApp: customer_orders + order_items باستخدام service_role، مع حفظ نسخة تاريخية لمكوّنات كل عرض داخل سطر الطلب
 → إشعار تيليجرام للمدير مع wf_approve_
 ```
 
@@ -165,7 +165,7 @@ pg_cron / net.http_post
 | `package_items` | عامة للقراءة | لوحة البكجات و`submit-order`/`sync-products` تعتمد عليه؛ تحقق من RLS الحي قبل تغييره |
 | `app_categories` | عامة/لوحة الإدارة حسب RLS الحي | لوحة الإدارة تستخدمه لإدارة تصنيفات التطبيق |
 | `customer_orders` | service_role، وبعض سياسات قراءة العميل بالهاتف | `submit-order` و`telegram-bot` عبر service_role |
-| `order_items` | service_role، وبعض سياسات قراءة العميل بالهاتف | `submit-order` عبر service_role |
+| `order_items` | service_role، وبعض سياسات قراءة العميل بالهاتف | `submit-order` عبر service_role؛ `package_items_snapshot` يحفظ أسماء وكميات مكوّنات العرض وقت الطلب ولا يُعاد بناؤه لاحقًا |
 | `app_settings` | service_role/RPC إداري | RPC إداري |
 | `app_settings_public` | `anon`, `authenticated` | View فقط |
 | `recipes`, `articles`, `banners`, `faq` | عامة | لوحة الإدارة تتوقع كتابة مستخدم authenticated حسب إعدادات RLS الحية |

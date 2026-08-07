@@ -5,7 +5,7 @@
 | Function | Path | Main Responsibility |
 |---|---|---|
 | `telegram-bot` | `supabase/functions/telegram-bot/` | Telegram commands/callbacks and Inventory webhooks |
-| `submit-order` | `supabase/functions/submit-order/index.ts` | Create Inventory quotation and JoudaApp order |
+| `submit-order` | `supabase/functions/submit-order/index.ts` | Create Inventory quotation and JoudaApp order, including a historical package-component snapshot per order line |
 | `sync-products` | `supabase/functions/sync-products/index.ts` | Sync Inventory products to JoudaApp |
 | `update-inventory` | `supabase/functions/update-inventory/index.ts` | Admin-gated updates to Inventory product fields |
 | `analyze-product` | `supabase/functions/analyze-product/index.ts` | AI product analysis using Gemini |
@@ -40,6 +40,7 @@
 - In app order callbacks, `reserved` means the team/courier accepted the order in Telegram. For CASH orders with an Inventory invoice, reserve now calls `assign_invoice_to_collector` through `TELEGRAM_DRIVER_MAP`; missing driver mapping blocks the button.
 - CASH deposit buttons must call `settle_single_invoice` before marking the workflow deposited. Non-CASH deposits only mark workflow status and do not enter collector custody.
 - Inventory invoice reversal webhooks must keep JoudaApp `customer_orders` in sync with cancelled status.
+- Resolve package components once from the server catalog in `submit-order`; save their final order quantities in `order_items.package_items_snapshot` and reuse that same snapshot for Telegram. Do not reconstruct historical package contents from current mappings.
 - `wf_*` button labels are order-type aware: delivery orders use delivery wording, while `shipping` orders use shipping-company wording.
 - When adding env vars, update `AGENTS.md` and this file.
 - Deploy the full source tree so Supabase function and frontend source stay aligned.

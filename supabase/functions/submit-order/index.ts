@@ -1,5 +1,12 @@
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
+import {
+  buildStoredOrderItems,
+  buildTelegramOrderItems,
+  resolveOrderItems,
+  type ResolvedOrderItem,
+} from './packageSnapshot.ts';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -46,6 +53,14 @@ interface RpcItem {
   quantity: number;
   unit_price: number;
   expiry_date: string | null;
+}
+
+interface SaveOrderRequest {
+  payload: OrderPayload;
+  resolvedOrderItems: ResolvedOrderItem[];
+  quotationId: string;
+  orderNumber: string;
+  rpcSuccess: boolean;
 }
 
 const MIN_CUSTOMER_DISTANCE_KM = 0.2;
@@ -286,7 +301,8 @@ async function verifyInventoryQuotationItems(quotationId: string, rpcItems: RpcI
   }
 }
 
-async function saveOrderLocally(payload: OrderPayload, quotationId: string, orderNumber: string, rpcSuccess: boolean, joudaClient: SupabaseClient) {
+async function saveOrderLocally(request: SaveOrderRequest, joudaClient: SupabaseClient) {
+  const { payload, resolvedOrderItems, quotationId, orderNumber, rpcSuccess } = request;
   const total = payload.subtotal + (payload.delivery_fee || 0);
 
   const { data: insertedOrder, error: insertError } = await joudaClient.from('customer_orders').insert({
@@ -310,14 +326,7 @@ async function saveOrderLocally(payload: OrderPayload, quotationId: string, orde
 
   if (insertError) throw new Error(`Insert order error: ${insertError.message}`);
 
-  const orderItemsToInsert = payload.items.map(item => ({
-    order_id: insertedOrder.id,
-    product_barcode: item.product_barcode,
-    product_name: item.product_name || item.product_barcode,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    total_price: item.quantity * item.unit_price,
-  }));
+  const orderItemsToInsert = buildStoredOrderItems(insertedOrder.id, resolvedOrderItems);
 
   const { error: itemsError } = await joudaClient.from('order_items').insert(orderItemsToInsert);
   if (itemsError) throw new Error(`Insert items error: ${itemsError.message}`);
@@ -352,7 +361,7 @@ function buildTelegramMessage(orderData: any): string {
   const { orderNumber, customerName, customerPhone, customerAddress, orderType, total, deliveryFee, items, notes, latitude, longitude } = orderData;
   const itemsList = items.map((item: any) => {
     if (item.is_package && item.sub_items && item.sub_items.length > 0) {
-      const subList = item.sub_items.map((sub: any) => `    ▫️ ${sub.product_name} (× ${sub.quantity * item.quantity})`).join('\n');
+      const subList = item.sub_items.map((sub: any) => `    ▫️ ${sub.product_name} (× ${sub.quantity})`).join('\n');
       return `▪️ <b>${item.product_name}</b> (× ${item.quantity})\n${subList}`;
     }
     return `▪️ ${item.product_name} (× ${item.quantity})`;
@@ -435,6 +444,7 @@ Deno.serve(async (req: Request) => {
 
     // 5. Business Logic: Packages & Expiry
     const { rpcItems, packageDiscount, packageMappings, baseProducts, invProducts } = await processPackagesAndExpiry(payload, joudaClient, inventoryClient, config.onlineWarehouseId);
+    const resolvedOrderItems = resolveOrderItems(payload.items, packageMappings || [], baseProducts || []);
     
     // 5.5 Early Stock Validation (Prevent out-of-stock orders from entering as DRAFT)
     const requiredQtyMap = new Map<string, number>();
@@ -485,7 +495,13 @@ Deno.serve(async (req: Request) => {
     // 7. Save to JoudaApp & Compensate on Failure
     let orderRecord: any = null;
     try {
-      orderRecord = await saveOrderLocally(payload, quotationId, orderNumber, rpcSuccess, joudaClient);
+      orderRecord = await saveOrderLocally({
+        payload,
+        resolvedOrderItems,
+        quotationId,
+        orderNumber,
+        rpcSuccess,
+      }, joudaClient);
     } catch (localErr) {
       console.error('Local DB Failure. Initiating Rollback:', localErr);
       await voidQuotation(quotationId, config, inventoryClient);
@@ -506,17 +522,7 @@ Deno.serve(async (req: Request) => {
         notes: payload.notes,
         latitude: payload.latitude,
         longitude: payload.longitude,
-        items: payload.items.map((item: any) => {
-          const isPackage = String(item.product_barcode).startsWith('PKG-');
-          let subItems: any[] = [];
-          if (isPackage && packageMappings) {
-            subItems = packageMappings.filter((m: any) => m.package_barcode === item.product_barcode).map((pItem: any) => {
-              const baseProd = baseProducts?.find((bp: any) => bp.barcode === pItem.product_barcode);
-              return { product_name: baseProd ? baseProd.name : pItem.product_barcode, quantity: pItem.quantity };
-            });
-          }
-          return { product_name: item.product_name, quantity: item.quantity, is_package: isPackage, sub_items: isPackage ? subItems : undefined };
-        }),
+        items: buildTelegramOrderItems(resolvedOrderItems),
       };
 
       const tgMessage = buildTelegramMessage(notificationData);
