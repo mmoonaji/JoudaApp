@@ -365,7 +365,7 @@ begin
       raise exception 'Cash collector is required';
     end if;
 
-    if order_record.order_type <> 'pickup'
+    if coalesce(order_record.order_type, 'delivery') <> 'pickup'
        and order_record.delivery_assignee_id is distinct from p_cash_collected_by then
       raise exception 'Cash collector must be the delivery assignee';
     end if;

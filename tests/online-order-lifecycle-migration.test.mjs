@@ -50,8 +50,8 @@ test('payment classification is conditional, idempotent, and service-only', () =
   assert.match(sql, /'cash_with_employee'/i);
   assert.match(sql, /'bank_paid'/i);
   assert.match(sql, /payment_reference/i);
+  assert.match(sql, /coalesce\(order_record\.order_type,\s*'delivery'\)\s*<>\s*'pickup'/i);
   assert.match(sql, /for update/i);
   assert.match(sql, /revoke all on function public\.record_order_payment_classification[\s\S]+from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.record_order_payment_classification[\s\S]+to service_role/i);
 });
-
