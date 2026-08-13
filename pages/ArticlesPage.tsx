@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpen, Calendar, Search, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchArticlesFromSupabase, Article } from '../services/supabaseService';
-import { ArticleModal } from '../components/modals/ArticleModal';
 import { AppImage } from '../components/ui/AppImage';
 
 export const ArticlesPage: React.FC = () => {
@@ -10,7 +9,6 @@ export const ArticlesPage: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -87,7 +85,7 @@ export const ArticlesPage: React.FC = () => {
             {filteredArticles.map((article, index) => (
               <div 
                 key={article.id}
-                onClick={() => setSelectedArticle(article)}
+                onClick={() => navigate(`/articles/${article.id}`)}
                 className="bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group active:scale-[0.98] flex flex-col"
               >
                 <div className="relative aspect-[4/3] w-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
@@ -122,13 +120,6 @@ export const ArticlesPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      {selectedArticle && (
-        <ArticleModal 
-          article={selectedArticle} 
-          onClose={() => setSelectedArticle(null)} 
-        />
-      )}
     </div>
   );
 };

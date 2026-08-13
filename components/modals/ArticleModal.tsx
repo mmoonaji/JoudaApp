@@ -43,7 +43,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose }) 
         await navigator.share({
           title: article.title,
           text: `شوف هذا المقال المفيد من مدونة جوده: ${article.title}`,
-          url: window.location.href,
+          url: `${window.location.origin}/articles/${article.id}`,
         });
       } catch (e) {}
     }

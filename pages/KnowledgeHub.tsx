@@ -1,17 +1,12 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, Calendar, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { fetchArticleFromSupabase, fetchArticlePreviewsFromSupabase, Article } from '../services/supabaseService';
-
-const ArticleModal = lazy(() => import('../components/modals/ArticleModal').then((module) => ({
-  default: module.ArticleModal,
-})));
+import { fetchArticlePreviewsFromSupabase, Article } from '../services/supabaseService';
 
 export const KnowledgeHub: React.FC = () => {
   const navigate = useNavigate();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -26,10 +21,6 @@ export const KnowledgeHub: React.FC = () => {
     load();
   }, []);
 
-  const openArticle = async (preview: Article) => {
-    const article = await fetchArticleFromSupabase(preview.id);
-    setSelectedArticle(article || preview);
-  };
 
   useEffect(() => {
     if (articles.length <= 1) return;
@@ -139,7 +130,7 @@ export const KnowledgeHub: React.FC = () => {
                       key={article.id}
                       onClick={() => {
                         if (diff === 0) {
-                          openArticle(article);
+                          navigate(`/articles/${article.id}`);
                         } else {
                           setActiveIndex(index);
                         }
@@ -212,15 +203,6 @@ export const KnowledgeHub: React.FC = () => {
           </div>
         )}
       </div>
-
-      {selectedArticle && (
-        <Suspense fallback={null}>
-          <ArticleModal
-            article={selectedArticle}
-            onClose={() => setSelectedArticle(null)}
-          />
-        </Suspense>
-      )}
     </div>
   );
 };

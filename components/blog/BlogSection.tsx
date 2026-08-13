@@ -1,14 +1,14 @@
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, ChevronLeft, ArrowRight } from 'lucide-react';
+import { BookOpen, ChevronLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { fetchArticlesFromSupabase, Article } from '../../services/supabaseService';
-import { ArticleModal } from '../modals/ArticleModal';
 import { AppImage } from '../ui/AppImage';
 
 export const BlogSection: React.FC = () => {
+  const navigate = useNavigate();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -44,7 +44,7 @@ export const BlogSection: React.FC = () => {
             {articles.map((article, index) => (
               <div 
                 key={article.id}
-                onClick={() => setSelectedArticle(article)}
+                onClick={() => navigate(`/articles/${article.id}`)}
                 className="min-w-[260px] w-[260px] snap-center bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-md transition-all active:scale-[0.98] flex flex-col"
               >
                 {/* Image */}
@@ -78,13 +78,6 @@ export const BlogSection: React.FC = () => {
           </div>
         )}
       </div>
-
-      {selectedArticle && (
-        <ArticleModal 
-          article={selectedArticle} 
-          onClose={() => setSelectedArticle(null)} 
-        />
-      )}
     </>
   );
 };

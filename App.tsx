@@ -11,6 +11,7 @@ const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.H
 const ProductsPageRoute = lazy(() => import('./pages/ProductsPageRoute').then(m => ({ default: m.ProductsPageRoute })));
 const RecipesPageRoute = lazy(() => import('./pages/RecipesPageRoute').then(m => ({ default: m.RecipesPageRoute })));
 const ArticlesPageRoute = lazy(() => import('./pages/ArticlesPageRoute').then(m => ({ default: m.ArticlesPageRoute })));
+const ArticlePage = lazy(() => import('./pages/ArticlePage').then(m => ({ default: m.ArticlePage })));
 const AboutPageRoute = lazy(() => import('./pages/AboutPageRoute').then(m => ({ default: m.AboutPageRoute })));
 const HealthPage = lazy(() => import('./pages/HealthPage').then(m => ({ default: m.HealthPage })));
 const OrdersPage = lazy(() => import('./pages/OrdersPage').then(m => ({ default: m.OrdersPage })));
@@ -342,6 +343,7 @@ const AppContent: React.FC = () => {
             <Route path="/products" element={<ProductsPageRoute />} />
             <Route path="/recipes" element={<RecipesPageRoute />} />
             <Route path="/articles" element={<ArticlesPageRoute />} />
+            <Route path="/articles/:id" element={<ArticlePage />} />
             <Route path="/orders" element={<OrdersPage isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />} />
             <Route path="/about" element={<AboutPageRoute />} />
             <Route path="/health" element={<HealthPage />} />
