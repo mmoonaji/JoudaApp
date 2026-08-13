@@ -18,6 +18,15 @@ test('shared app image component handles broken images centrally', () => {
   assert.match(code, /fallback/);
 });
 
+test('cached images stay visible when the app image remounts after navigation', () => {
+  const code = source('components/ui/AppImage.tsx');
+
+  assert.match(code, /useLayoutEffect/);
+  assert.match(code, /imageRef\.current/);
+  assert.match(code, /image\?\.complete/);
+  assert.match(code, /image\.naturalWidth\s*>\s*0/);
+});
+
 test('primary image surfaces use the shared app image component', () => {
   const productCard = source('components/products/ProductCard.tsx');
   const productDetails = source('components/modals/ProductDetailsModal.tsx');

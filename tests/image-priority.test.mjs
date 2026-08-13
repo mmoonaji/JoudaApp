@@ -12,8 +12,9 @@ test('shared app image supports priority loading for above-the-fold images', () 
   const code = source('components/ui/AppImage.tsx');
 
   assert.match(code, /priority\?\s*:\s*boolean/);
-  assert.match(code, /loading\s*=\s*\{\s*priority\s*\?\s*'eager'\s*:\s*(?:imgProps\.loading\s*\?\?\s*)?'lazy'\s*\}/);
-  assert.match(code, /fetchPriority\s*=\s*\{\s*priority\s*\?\s*'high'\s*:/);
+  assert.match(code, /loading\s*=\s*\{\s*priority\s*\?\s*'eager'\s*:\s*(?:imgProps\.)?loading\s*\?\?\s*'lazy'\s*\}/);
+  assert.match(code, /fetchpriority:\s*priority\s*\?\s*'high'\s*:\s*fetchPriority\s*\?\?\s*'auto'/);
+  assert.doesNotMatch(code, /fetchPriority\s*=/);
   assert.match(code, /bg-gradient-to-r/);
 });
 

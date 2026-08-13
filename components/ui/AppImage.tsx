@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { ImageOff } from 'lucide-react';
 
 interface AppImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
@@ -29,15 +29,24 @@ export const AppImage: React.FC<AppImageProps> = ({
   showLoader = true,
   onLoad,
   onError,
+  fetchPriority,
+  loading,
+  decoding,
   ...imgProps
 }) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
   const imageSrc = typeof src === 'string' ? src.trim() : '';
+  const priorityAttribute = {
+    fetchpriority: priority ? 'high' : fetchPriority ?? 'auto',
+  } as React.ImgHTMLAttributes<HTMLImageElement>;
 
-  useEffect(() => {
-    setLoaded(false);
+  useLayoutEffect(() => {
+    const image = imageRef.current;
+
     setFailed(false);
+    setLoaded(Boolean(image?.complete && image.naturalWidth > 0));
   }, [imageSrc]);
 
   if (!imageSrc || failed) {
@@ -52,12 +61,13 @@ export const AppImage: React.FC<AppImageProps> = ({
         </div>
       )}
       <img
+        ref={imageRef}
         {...imgProps}
+        {...priorityAttribute}
         src={imageSrc}
         alt={alt}
-        loading={priority ? 'eager' : imgProps.loading ?? 'lazy'}
-        fetchPriority={priority ? 'high' : imgProps.fetchPriority ?? 'auto'}
-        decoding={imgProps.decoding ?? 'async'}
+        loading={priority ? 'eager' : loading ?? 'lazy'}
+        decoding={decoding ?? 'async'}
         className={`${className} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
         onLoad={(event) => {
           setLoaded(true);

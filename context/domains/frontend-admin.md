@@ -25,6 +25,7 @@ The frontend is the customer app and admin dashboard. It reads public data from 
 - Cart, map, and article detail bundles are deferred until needed; homepage recipe/article/package reads use compact preview queries.
 - Public media URLs stay raw Supabase Storage URLs, and admin uploads return direct `public-assets` URLs instead of `/api/media`.
 - Customer and admin image surfaces should use `AppImage` so broken URLs fall back instead of leaving skeletons or blank cells.
+- `AppImage` synchronizes its loaded state from the underlying image element on mount so cached images do not become transparent after route navigation.
 - Customer-facing first visible images should pass `priority` to `AppImage`; non-priority images default to lazy loading.
 - Checkout order submission now calls `supabase.functions.invoke('submit-order')` directly; the legacy `/api/orders` route has been removed.
 - Vercel Web Analytics is mounted in `index.tsx` through `@vercel/analytics/react`.

@@ -201,6 +201,8 @@ Inventory هو مصدر الحقيقة للمخزون والحجز. `products.st
 
 المراقبة في Frontend تقتصر حاليًا على Vercel Analytics. لا توجد حزم أو تهيئة لـ Sentry أو Microsoft Clarity، و`ErrorBoundary` يسجل الأخطاء محليًا في console فقط.
 
+`AppImage` يفحص `HTMLImageElement.complete` و`naturalWidth` عند التركيب حتى تبقى صور الكاش ظاهرة بعد التنقل بين الصفحات، مع تحميل eager لأول صورة ظاهرة وlazy للبقية.
+
 ---
 
 ## 7. قواعد العمل

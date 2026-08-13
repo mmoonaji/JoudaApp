@@ -16,6 +16,7 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 | Date | Change | Impact |
 |---|---|---|
+| 2026-08-13 | Cached product image remount fixed | Product images already loaded by the browser remain visible after navigating away from and back to the store; eager/lazy priority behavior is preserved |
 | 2026-08-13 | Sentry and Microsoft Clarity removed | Their runtime code, external reporting, and npm dependencies are gone; Vercel Analytics remains enabled |
 | 2026-08-13 | Customer startup performance repaired | Public UI no longer waits for maintenance/auth checks; settings requests are deduplicated, homepage payloads are smaller, and cart/map/article bundles are deferred |
 | 2026-08-07 | Historical package contents added to submitted order lines | New orders preserve component names and final quantities in `order_items.package_items_snapshot`; Telegram uses the same snapshot, while old orders remain unchanged |
