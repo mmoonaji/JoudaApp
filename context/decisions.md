@@ -4,6 +4,36 @@ This file records decisions that affect multiple areas of Jouda. Keep entries br
 
 ## Architecture Decisions
 
+### Keep Sentry and Microsoft Clarity out of the client
+
+**Date:** 2026-08-13
+**Status:** Active
+
+**Context:** The project was paying the runtime and bundle cost of Sentry and Clarity without using their telemetry.
+
+**Decision:** Remove both tools and their dependencies. Keep Vercel Analytics as the only current external frontend analytics integration, while React errors remain visible locally through `ErrorBoundary` and the browser console.
+
+**Consequences:**
+
+- The client does not send error, session-replay, or user-identity data to Sentry or Clarity.
+- Production error diagnosis relies on local reproduction and available Vercel Analytics until a new monitoring decision is explicitly approved.
+- Do not reintroduce either package as part of unrelated frontend work.
+
+### Keep public startup fail-open and admin startup strict
+
+**Date:** 2026-08-13
+**Status:** Active
+
+**Context:** Public rendering previously waited for both maintenance settings and admin session restoration, so a slow settings request delayed every customer.
+
+**Decision:** Render customer routes immediately, restore admin auth in the background, and apply maintenance settings asynchronously. Only `/admin` routes may wait for the auth result.
+
+**Consequences:**
+
+- A settings timeout or failure leaves the customer UI available until a later refresh succeeds.
+- Maintenance checks share one cached/in-flight request and refresh on the existing interval and visibility events.
+- Do not add a global startup gate that combines public settings with admin auth.
+
 ### Use Inventory as the stock source of truth
 
 **Date:** 2026-06-26  

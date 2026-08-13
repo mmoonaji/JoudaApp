@@ -20,11 +20,15 @@ The frontend is the customer app and admin dashboard. It reads public data from 
 - Admin login uses `supabase.auth.signInWithPassword` directly against Supabase.
 - Password recovery links are handled in-app: `PASSWORD_RECOVERY` or `type=recovery` opens a dedicated reset-password screen that calls `supabase.auth.updateUser({ password })`.
 - Public catalog reads in `services/supabaseService.ts` now use the browser Supabase client directly instead of `/api/catalog`.
+- Public customer routes render immediately and apply maintenance settings asynchronously; only `/admin` routes wait for session restoration.
+- The public-settings request is shared and cached in memory so mount, polling, and visibility refreshes do not duplicate the same in-flight request.
+- Cart, map, and article detail bundles are deferred until needed; homepage recipe/article/package reads use compact preview queries.
 - Public media URLs stay raw Supabase Storage URLs, and admin uploads return direct `public-assets` URLs instead of `/api/media`.
 - Customer and admin image surfaces should use `AppImage` so broken URLs fall back instead of leaving skeletons or blank cells.
 - Customer-facing first visible images should pass `priority` to `AppImage`; non-priority images default to lazy loading.
 - Checkout order submission now calls `supabase.functions.invoke('submit-order')` directly; the legacy `/api/orders` route has been removed.
 - Vercel Web Analytics is mounted in `index.tsx` through `@vercel/analytics/react`.
+- Sentry and Microsoft Clarity are not installed or initialized. `ErrorBoundary` reports locally through the browser console and keeps its recovery UI.
 - Frontend env vars are `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 - Admin product changes can update JoudaApp directly, and Inventory-owned fields through `update-inventory`.
 - Content managers write recipes, articles, banners, FAQ, and uploaded images.
@@ -53,6 +57,7 @@ These fields are used by the current app/admin code and should not be treated as
 - Do not reintroduce `admin_pin` as the main admin model.
 - Never place service role keys in frontend code.
 - If admin/product images show old `/api/media` URLs, clear browser/PWA cache or refresh the stored content because the media proxy route is gone.
+- Maintenance mode is fail-open during a settings timeout or network failure; a successful background refresh still switches the customer UI into maintenance mode.
 
 ## Related Context
 

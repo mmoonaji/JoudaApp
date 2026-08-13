@@ -11,6 +11,7 @@ export default defineConfig(() => {
     build: {
       rollupOptions: {
         output: {
+          entryFileNames: 'assets/app-[hash].js',
           manualChunks: {
             'react-vendor':    ['react', 'react-dom', 'react-router-dom'],
             'supabase-vendor': ['@supabase/supabase-js'],
@@ -28,7 +29,6 @@ export default defineConfig(() => {
         devOptions: {
           enabled: true
         },
-        includeAssets: ['apple-touch-icon.png'],
         manifest: {
           id: '/',
           name: 'Jouda World | عالم جوده',
@@ -59,7 +59,16 @@ export default defineConfig(() => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+          globPatterns: [
+            'index.html',
+            'apple-touch-icon.png',
+            'assets/app-*.js',
+            'assets/index-*.css',
+            'assets/react-vendor-*.js',
+            'assets/ui-vendor-*.js',
+            'assets/supabase-vendor-*.js',
+            'assets/HomePage-*.js',
+          ],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.bunny\.net\/.*/i,

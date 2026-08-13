@@ -1,11 +1,13 @@
-import React, { ReactNode } from 'react';
+import React, { lazy, ReactNode, Suspense, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
-import { CartDrawer } from '../cart/CartDrawer';
-
 import { InstallPrompt } from '../ui/InstallPrompt';
 import { useCart } from '../../contexts/CartContext';
+
+const CartDrawer = lazy(() => import('../cart/CartDrawer').then((module) => ({
+  default: module.CartDrawer,
+})));
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,8 +20,13 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, isDarkMode, toggleDarkMode, onHelpClick, isAdmin, onAdminLogout, onLogoClick }) => {
-  const { lastAddedItem } = useCart();
+  const { lastAddedItem, isCartOpen } = useCart();
   const location = useLocation();
+  const [hasOpenedCart, setHasOpenedCart] = useState(isCartOpen);
+
+  useEffect(() => {
+    if (isCartOpen) setHasOpenedCart(true);
+  }, [isCartOpen]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] transition-colors duration-300 flex justify-center font-sans">
@@ -54,7 +61,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, isDarkMode, toggleDark
 
 
 
-        <CartDrawer />
+        {hasOpenedCart && (
+          <Suspense fallback={null}>
+            <CartDrawer />
+          </Suspense>
+        )}
         
         {/* MOBILE BOTTOM NAV */}
         <BottomNav />

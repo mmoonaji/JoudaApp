@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BookOpen, Calendar, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { fetchArticlesFromSupabase, Article } from '../services/supabaseService';
-import { ArticleModal } from '../components/modals/ArticleModal';
+import { fetchArticleFromSupabase, fetchArticlePreviewsFromSupabase, Article } from '../services/supabaseService';
+
+const ArticleModal = lazy(() => import('../components/modals/ArticleModal').then((module) => ({
+  default: module.ArticleModal,
+})));
 
 export const KnowledgeHub: React.FC = () => {
   const navigate = useNavigate();
@@ -16,12 +19,17 @@ export const KnowledgeHub: React.FC = () => {
 
   useEffect(() => {
     const load = async () => {
-      const data = await fetchArticlesFromSupabase();
+      const data = await fetchArticlePreviewsFromSupabase();
       setArticles(data.slice(0, 5));
       setLoading(false);
     };
     load();
   }, []);
+
+  const openArticle = async (preview: Article) => {
+    const article = await fetchArticleFromSupabase(preview.id);
+    setSelectedArticle(article || preview);
+  };
 
   useEffect(() => {
     if (articles.length <= 1) return;
@@ -131,7 +139,7 @@ export const KnowledgeHub: React.FC = () => {
                       key={article.id}
                       onClick={() => {
                         if (diff === 0) {
-                          setSelectedArticle(article);
+                          openArticle(article);
                         } else {
                           setActiveIndex(index);
                         }
@@ -206,10 +214,12 @@ export const KnowledgeHub: React.FC = () => {
       </div>
 
       {selectedArticle && (
-        <ArticleModal
-          article={selectedArticle}
-          onClose={() => setSelectedArticle(null)}
-        />
+        <Suspense fallback={null}>
+          <ArticleModal
+            article={selectedArticle}
+            onClose={() => setSelectedArticle(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

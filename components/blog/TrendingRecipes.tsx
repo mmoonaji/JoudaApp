@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, ChefHat, ArrowLeft } from 'lucide-react';
-import { fetchRecipesFromSupabase, Recipe } from '../../services/supabaseService';
+import { fetchRecipePreviewsFromSupabase, Recipe } from '../../services/supabaseService';
 import { AppImage } from '../ui/AppImage';
 
 const RECIPE_IDX_KEY = 'jouda_recipe_idx_v2';
@@ -16,7 +16,7 @@ export const TrendingRecipes: React.FC = () => {
     const load = async () => {
       try {
         localStorage.removeItem(LEGACY_RECIPE_LIST_KEY);
-        const list = await fetchRecipesFromSupabase();
+        const list = await fetchRecipePreviewsFromSupabase();
 
         if (list.length > 0) {
           const todayIdxStr = localStorage.getItem(RECIPE_IDX_KEY);

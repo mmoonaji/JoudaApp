@@ -39,7 +39,7 @@ This policy accepts a brief customer-interface display before a newly enabled ma
 
 1. Limit PWA precaching to the application shell and critical startup assets.
 2. Use runtime caching for route chunks instead of downloading admin, map, and animation chunks during installation.
-3. Defer Clarity and non-critical monitoring initialization until after the first customer render or browser idle time.
+3. Keep non-critical monitoring out of the initial customer render; Sentry and Clarity were subsequently removed by the approved 2026-08-13 monitoring-removal decision.
 
 ## Architecture
 

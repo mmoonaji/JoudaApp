@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Product, fetchProductsFromSupabase } from '../../services/supabaseService';
+import { Product, fetchFeaturedPackagesFromSupabase } from '../../services/supabaseService';
 import { getCachedProducts, getCacheAge } from '../../services/db';
 import { ProductDetailsModal } from '../modals/ProductDetailsModal';
 import { calculatePackageSavings } from '../products/utils';
@@ -29,7 +29,7 @@ export const HomePackagesCarousel: React.FC = () => {
             return;
           }
         }
-        const fresh = await fetchProductsFromSupabase();
+        const fresh = await fetchFeaturedPackagesFromSupabase();
         setProducts(fresh);
       } catch (err) {
         console.error('Failed to load packages:', err);

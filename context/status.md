@@ -16,6 +16,8 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 | Date | Change | Impact |
 |---|---|---|
+| 2026-08-13 | Sentry and Microsoft Clarity removed | Their runtime code, external reporting, and npm dependencies are gone; Vercel Analytics remains enabled |
+| 2026-08-13 | Customer startup performance repaired | Public UI no longer waits for maintenance/auth checks; settings requests are deduplicated, homepage payloads are smaller, and cart/map/article bundles are deferred |
 | 2026-08-07 | Historical package contents added to submitted order lines | New orders preserve component names and final quantities in `order_items.package_items_snapshot`; Telegram uses the same snapshot, while old orders remain unchanged |
 | 2026-06-26 | `AGENTS.md` rewritten as concise system reference | Agents have a cleaner entry point with fewer stale claims |
 | 2026-06-26 | `context-network` bootstrapped | Project now has persistent context files for status, decisions, domains, processes, and security |
@@ -64,7 +66,7 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 - Historical Telegram orders before 2026-07-13 may still have `deposited`/`deposit` workflow status without `collector_id` or `is_settled=true`; repair requires identifying the real collector before backfilling.
 - Browser Supabase now connects directly to `SUPABASE_URL` plus an anon key (`SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`, or `VITE_SUPABASE_ANON`). Do not expose service role keys in the frontend.
 - Direct browser access depends on `supabase.co` being reachable from the user's network; if it is blocked again, the app needs an explicit relay reintroduction.
-- Browser logs for `clarity.ms`, Sentry ingest, and PWA install prompt can be blocker/UX noise; treat them separately from Jouda API failures.
+- Browser logs for the PWA install prompt can be UX noise; treat them separately from Jouda API failures.
 
 ## Next Steps
 
@@ -74,5 +76,5 @@ Jouda is a React/Vite customer app with Supabase Edge Functions and a Capacitor 
 
 ---
 
-Last updated: 2026-07-22 by Codex.
+Last updated: 2026-08-13 by Codex.
 

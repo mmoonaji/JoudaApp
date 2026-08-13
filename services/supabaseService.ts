@@ -37,6 +37,8 @@ export interface Product {
     barcode: string;
     product_name: string;
     quantity: number;
+    price?: number;
+    image?: string;
   }[];
 }
 
@@ -104,6 +106,14 @@ interface CatalogSettingsResponse {
   } | null;
 }
 
+type PublicSettings = CatalogSettingsResponse['settings'];
+
+const PRODUCT_CATALOG_COLUMNS = 'barcode, name, category, app_category, description, price, image_url, is_active, is_hidden_in_app, force_out_of_stock, is_stock_tracked, stock_status, stock_quantity, stock_updated_at, unit, tags, valid_until';
+const PRODUCT_COMPONENT_COLUMNS = 'barcode, name, category, app_category, price, image_url, force_out_of_stock, stock_status';
+const PACKAGE_ITEM_COLUMNS = 'package_barcode, product_barcode, quantity';
+const RECIPE_PREVIEW_COLUMNS = 'id, title, time, difficulty, image_url, video_url';
+const ARTICLE_PREVIEW_COLUMNS = 'id, title, image_url, published_date, author';
+
 const normalizeCatalogImage = (row: Record<string, any>) => ({
   ...row,
 });
@@ -122,23 +132,21 @@ async function fetchCatalogSection<T>(section: CatalogSection): Promise<T> {
     }
 
     case 'products': {
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
+      const [productsResponse, packageItemsResponse] = await Promise.all([
+        supabase
+          .from('products')
+          .select(PRODUCT_CATALOG_COLUMNS)
+          .eq('is_active', true)
+          .order('name', { ascending: true }),
+        supabase.from('package_items').select(PACKAGE_ITEM_COLUMNS),
+      ]);
 
-      if (productsError) throw productsError;
-
-      const { data: packageItems, error: packageError } = await supabase
-        .from('package_items')
-        .select('*');
-
-      if (packageError) throw packageError;
+      if (productsResponse.error) throw productsResponse.error;
+      if (packageItemsResponse.error) throw packageItemsResponse.error;
 
       return {
-        products: (products || []).map((row) => normalizeCatalogImage(row)),
-        package_items: packageItems || [],
+        products: (productsResponse.data || []).map((row) => normalizeCatalogImage(row)),
+        package_items: packageItemsResponse.data || [],
       } as T;
     }
 
@@ -218,6 +226,119 @@ export interface Article {
   author: string;
 }
 
+const recipeFromRow = (recipe: Record<string, any>): Recipe => ({
+  id: recipe.id,
+  title: recipe.title,
+  description: recipe.description || '',
+  time: recipe.time || '',
+  difficulty: recipe.difficulty || '',
+  calories: recipe.calories || '',
+  main_product: recipe.main_product || '',
+  mainProduct: recipe.main_product || '',
+  ingredients: recipe.ingredients || [],
+  steps: recipe.steps || [],
+  image: recipe.image_url,
+  image_url: recipe.image_url,
+  bundle_items: recipe.bundle_items || [],
+  bundleItems: recipe.bundle_items || [],
+  video_url: recipe.video_url,
+  videoUrl: recipe.video_url,
+});
+
+const articleFromRow = (article: Record<string, any>): Article => ({
+  id: article.id,
+  title: article.title,
+  image: article.image_url || '',
+  image_url: article.image_url || '',
+  content: article.content || '',
+  date: article.published_date,
+  published_date: article.published_date,
+  author: article.author || 'جوده',
+});
+
+const isBakeryProduct = (product: Record<string, any>) => (
+  product.app_category === 'مخبوزات' || product.category === 'مخبوزات'
+);
+
+const isPackageProduct = (product: Record<string, any>) => (
+  product.barcode.startsWith('PKG-')
+  || product.app_category === 'عروض وبكجات'
+  || product.category === 'عروض وبكجات'
+);
+
+const catalogProductIsAvailable = (product: Record<string, any>) => {
+  if (product.force_out_of_stock === true) return false;
+  return isBakeryProduct(product) || product.stock_status === 'available';
+};
+
+const mapCatalogProducts = (
+  products: Record<string, any>[],
+  packageItems: Record<string, any>[],
+): Product[] => {
+  const productLookup = new Map(products.map((product) => [product.barcode, product]));
+  const mappingsByPackage = new Map<string, Record<string, any>[]>();
+
+  for (const mapping of packageItems) {
+    const mappings = mappingsByPackage.get(mapping.package_barcode) || [];
+    mappings.push(mapping);
+    mappingsByPackage.set(mapping.package_barcode, mappings);
+  }
+
+  return products
+    .filter((product) => product.is_hidden_in_app !== true)
+    .map((product) => mapCatalogProduct(product, productLookup, mappingsByPackage));
+};
+
+const mapCatalogProduct = (
+  product: Record<string, any>,
+  productLookup: Map<string, Record<string, any>>,
+  mappingsByPackage: Map<string, Record<string, any>[]>,
+): Product => {
+  const resolvedCategory = product.app_category || product.category || 'عام';
+  const isPackage = isPackageProduct(product);
+  const mappings = mappingsByPackage.get(product.barcode) || [];
+  const bundleItems = isPackage ? mappings.map((mapping) => {
+    const component = productLookup.get(mapping.product_barcode);
+    return {
+      barcode: mapping.product_barcode,
+      product_name: component?.name || `منتج ${mapping.product_barcode}`,
+      quantity: mapping.quantity,
+      price: component?.price,
+      image: component?.image_url,
+    };
+  }) : undefined;
+  const packageInStock = mappings.every((mapping) => {
+    const component = productLookup.get(mapping.product_barcode);
+    return component ? catalogProductIsAvailable(component) : false;
+  });
+  const finalStockStatus = product.force_out_of_stock === true ? 'out_of_stock' : product.stock_status;
+
+  return {
+    id: product.barcode,
+    barcode: product.barcode,
+    name: product.name,
+    category: resolvedCategory,
+    app_category: product.app_category,
+    description: product.description || '',
+    price: product.price || 0,
+    image: product.image_url,
+    image_url: product.image_url,
+    is_active: product.is_active,
+    is_hidden_in_app: product.is_hidden_in_app,
+    force_out_of_stock: product.force_out_of_stock,
+    is_stock_tracked: product.is_stock_tracked,
+    stock_status: finalStockStatus,
+    stock_quantity: product.stock_quantity == null ? null : Number(product.stock_quantity),
+    stock_updated_at: product.stock_updated_at,
+    unit: product.unit,
+    tags: product.tags || [],
+    valid_until: product.valid_until,
+    inStock: isPackage ? product.force_out_of_stock !== true && packageInStock : catalogProductIsAvailable(product),
+    source: isBakeryProduct(product) ? 'bakery' : 'store',
+    bundle_items: bundleItems,
+  };
+};
+
 // ==========================
 // PRODUCTS (from Supabase)
 // ==========================
@@ -225,79 +346,7 @@ export interface Article {
 export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
   try {
     const { products, package_items: packageItems } = await fetchCatalogSection<CatalogProductsResponse>('products');
-
-    const productsList: Product[] = (products || [])
-      .filter((p) => p.is_hidden_in_app !== true)
-      .map((p) => {
-      const resolvedCategory = p.app_category || p.category || 'عام';
-      const isBakery = resolvedCategory === 'مخبوزات' || p.category === 'مخبوزات';
-      
-      // If it is a package, resolve its bundle items
-      let bundle_items: Product['bundle_items'] = undefined;
-      const isPackage = p.barcode.startsWith('PKG-') || resolvedCategory === 'عروض وبكجات' || p.category === 'عروض وبكجات';
-      let packageInStock = true;
-
-      if (isPackage && packageItems.length > 0) {
-        const mappings = packageItems.filter((m) => m.package_barcode === p.barcode);
-        bundle_items = mappings.map((m) => {
-          const compProduct = products.find((bp) => bp.barcode === m.product_barcode);
-          return {
-            barcode: m.product_barcode,
-            product_name: compProduct ? compProduct.name : `منتج ${m.product_barcode}`,
-            quantity: m.quantity,
-          };
-        });
-
-        // Dynamic stock status check for packages: if any constituent item is out of stock, package is out of stock
-        for (const m of mappings) {
-          const compProduct = products.find((bp) => bp.barcode === m.product_barcode);
-          if (!compProduct) {
-            packageInStock = false;
-            break;
-          }
-          const isCompBakery = compProduct.app_category === 'مخبوزات' || compProduct.category === 'مخبوزات';
-          const isCompForcedOut = compProduct.force_out_of_stock === true;
-          const compStockStatus = isCompForcedOut ? 'out_of_stock' : compProduct.stock_status;
-          const compInStock = isCompForcedOut ? false : (isCompBakery ? true : compStockStatus === 'available');
-
-          if (!compInStock) {
-            packageInStock = false;
-            break;
-          }
-        }
-      }
-
-      const isForcedOut = p.force_out_of_stock === true;
-      const finalStockStatus = isForcedOut ? 'out_of_stock' : p.stock_status;
-
-      return {
-        id: p.barcode,
-        barcode: p.barcode,
-        name: p.name,
-        category: resolvedCategory,
-        app_category: p.app_category,
-        description: p.description || '',
-        price: p.price || 0,
-        image: p.image_url,
-        image_url: p.image_url,
-        is_active: p.is_active,
-        is_hidden_in_app: p.is_hidden_in_app,
-        force_out_of_stock: p.force_out_of_stock,
-        is_stock_tracked: p.is_stock_tracked,
-        stock_status: finalStockStatus,
-        stock_quantity: p.stock_quantity === undefined || p.stock_quantity === null ? null : Number(p.stock_quantity),
-        stock_updated_at: p.stock_updated_at,
-        unit: p.unit,
-        tags: p.tags || [],
-        valid_until: p.valid_until,
-        // For packages, inStock is determined dynamically; bakery items are always available; others check stock_status
-        inStock: isPackage 
-          ? (isForcedOut ? false : packageInStock)
-          : (isForcedOut ? false : (isBakery ? true : finalStockStatus === 'available')),
-        source: isBakery ? ('bakery' as const) : ('store' as const),
-        bundle_items,
-        };
-      });
+    const productsList = mapCatalogProducts(products || [], packageItems);
 
     // Cache in IndexedDB for offline
     try { await cacheProducts(productsList); } catch (e) { console.warn('Failed to cache products', e); }
@@ -318,6 +367,55 @@ export const fetchProductsFromSupabase = async (): Promise<Product[]> => {
   }
 };
 
+export const fetchFeaturedPackagesFromSupabase = async (): Promise<Product[]> => {
+  try {
+    const [packagesResponse, packageItemsResponse] = await Promise.all([
+      supabase
+        .from('products')
+        .select(PRODUCT_CATALOG_COLUMNS)
+        .eq('is_active', true)
+        .or('barcode.like.PKG-%,category.eq.عروض وبكجات,app_category.eq.عروض وبكجات')
+        .limit(6),
+      supabase.from('package_items').select(PACKAGE_ITEM_COLUMNS),
+    ]);
+
+    if (packagesResponse.error) throw packagesResponse.error;
+    if (packageItemsResponse.error) throw packageItemsResponse.error;
+
+    const packageRows = packagesResponse.data || [];
+    const packageBarcodes = new Set(packageRows.map((product) => product.barcode));
+    const packageItems = (packageItemsResponse.data || []).filter((mapping) => (
+      packageBarcodes.has(mapping.package_barcode)
+    ));
+    const componentBarcodes = [...new Set(packageItems.map((mapping) => mapping.product_barcode))];
+    let componentRows: Record<string, any>[] = [];
+
+    if (componentBarcodes.length > 0) {
+      const componentResponse = await supabase
+        .from('products')
+        .select(PRODUCT_COMPONENT_COLUMNS)
+        .in('barcode', componentBarcodes)
+        .eq('is_active', true);
+      if (componentResponse.error) throw componentResponse.error;
+      componentRows = componentResponse.data || [];
+    }
+
+    const catalogRows = [...packageRows, ...componentRows];
+    const featuredBarcodeSet = new Set(packageRows.map((product) => product.barcode));
+    return mapCatalogProducts(catalogRows, packageItems).filter((product) => (
+      featuredBarcodeSet.has(product.barcode)
+    ));
+  } catch (error) {
+    console.warn('Supabase featured packages failed, trying IndexedDB cache...', error);
+    const cachedProducts = await getCachedProducts().catch(() => []);
+    return cachedProducts.filter((product) => (
+      product.barcode.startsWith('PKG-')
+      || product.category === 'عروض وبكجات'
+      || product.app_category === 'عروض وبكجات'
+    ));
+  }
+};
+
 // Bakery products - for now, keep empty or fetch from a separate source
 // ==========================
 // RECIPES
@@ -329,24 +427,7 @@ const fetchRecipesFresh = async (): Promise<Recipe[]> => {
   try {
     const { recipes } = await fetchCatalogSection<CatalogRecipesResponse>('recipes');
 
-    const recipeList: Recipe[] = (recipes || []).map((r) => ({
-      id: r.id,
-      title: r.title,
-      description: r.description || '',
-      time: r.time || '',
-      difficulty: r.difficulty || '',
-      calories: r.calories || '',
-      main_product: r.main_product || '',
-      mainProduct: r.main_product || '',
-      ingredients: r.ingredients || [],
-      steps: r.steps || [],
-      image: r.image_url,
-      image_url: r.image_url,
-      bundle_items: r.bundle_items || [],
-      bundleItems: r.bundle_items || [],
-      video_url: r.video_url,
-      videoUrl: r.video_url,
-    }));
+    const recipeList: Recipe[] = (recipes || []).map(recipeFromRow);
 
     try { await cacheRecipes(recipeList); } catch (e) { console.warn('Failed to cache recipes', e); }
     return recipeList;
@@ -376,6 +457,22 @@ export const fetchRecipesFromSupabase = async (): Promise<Recipe[]> => {
   return recipesFetchPromise;
 };
 
+export const fetchRecipePreviewsFromSupabase = async (): Promise<Recipe[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(RECIPE_PREVIEW_COLUMNS)
+      .order('created_at', { ascending: false })
+      .limit(7);
+
+    if (error) throw error;
+    return (data || []).map(recipeFromRow);
+  } catch (error) {
+    console.warn('Supabase recipe previews failed, trying IndexedDB cache...', error);
+    return getCachedRecipes().then((recipes) => recipes.slice(0, 7)).catch(() => []);
+  }
+};
+
 // ==========================
 // ARTICLES
 // ==========================
@@ -384,16 +481,7 @@ export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
   try {
     const { articles } = await fetchCatalogSection<CatalogArticlesResponse>('articles');
 
-    const articleList: Article[] = (articles || []).map((a) => ({
-      id: a.id,
-      title: a.title,
-      image: a.image_url || '',
-      image_url: a.image_url || '',
-      content: a.content || '',
-      date: a.published_date,
-      published_date: a.published_date,
-      author: a.author || 'جوده',
-    }));
+    const articleList: Article[] = (articles || []).map(articleFromRow);
 
     try { await cacheArticles(articleList); } catch (e) { console.warn('Failed to cache articles', e); }
     return articleList;
@@ -410,6 +498,38 @@ export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
       }
     } catch (e) {}
     return [];
+  }
+};
+
+export const fetchArticlePreviewsFromSupabase = async (): Promise<Article[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('articles')
+      .select(ARTICLE_PREVIEW_COLUMNS)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    return (data || []).map(articleFromRow);
+  } catch (error) {
+    console.warn('Supabase article previews failed, trying IndexedDB cache...', error);
+    return getCachedArticles().then((articles) => articles.slice(0, 5)).catch(() => []);
+  }
+};
+
+export const fetchArticleFromSupabase = async (articleId: string): Promise<Article | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('id', articleId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? articleFromRow(data) : null;
+  } catch (error) {
+    console.warn('Supabase article detail failed', error);
+    return null;
   }
 };
 
@@ -465,14 +585,37 @@ export const fetchBannersFromSupabase = async (): Promise<Banner[]> => {
   }
 };
 
-export const fetchPublicSettingsFromSupabase = async (): Promise<CatalogSettingsResponse['settings']> => {
-  try {
-    const { settings } = await fetchCatalogSection<CatalogSettingsResponse>('settings');
-    return settings;
-  } catch (error) {
-    console.warn('Supabase settings failed', error);
-    return null;
+let cachedPublicSettings: PublicSettings | undefined;
+let publicSettingsRequest: Promise<PublicSettings> | null = null;
+
+const requestPublicSettings = (): Promise<PublicSettings> => {
+  if (publicSettingsRequest) return publicSettingsRequest;
+
+  publicSettingsRequest = fetchCatalogSection<CatalogSettingsResponse>('settings')
+    .then(({ settings }) => {
+      cachedPublicSettings = settings;
+      return settings;
+    })
+    .catch((error) => {
+      console.warn('Supabase settings failed', error);
+      return cachedPublicSettings ?? null;
+    })
+    .finally(() => {
+      publicSettingsRequest = null;
+    });
+
+  return publicSettingsRequest;
+};
+
+export const fetchPublicSettingsFromSupabase = (): Promise<PublicSettings> => {
+  if (cachedPublicSettings !== undefined) {
+    return Promise.resolve(cachedPublicSettings);
   }
+  return requestPublicSettings();
+};
+
+export const refreshPublicSettingsFromSupabase = (): Promise<PublicSettings> => {
+  return requestPublicSettings();
 };
 
 // ==========================

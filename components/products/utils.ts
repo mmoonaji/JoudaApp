@@ -9,8 +9,9 @@ export const calculatePackageSavings = (product: Product, allProducts: Product[]
   
   for (const item of product.bundle_items) {
     const compProduct = allProducts.find(p => p.barcode === item.barcode);
-    if (compProduct && compProduct.price) {
-      originalTotal += compProduct.price * item.quantity;
+    const componentPrice = compProduct?.price ?? item.price;
+    if (componentPrice) {
+      originalTotal += componentPrice * item.quantity;
     } else {
       hasMissingPrice = true;
     }

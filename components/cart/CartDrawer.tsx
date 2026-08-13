@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { ReceiptModal } from '../modals/ReceiptModal';
@@ -12,10 +12,13 @@ import { EmptyCartView } from './EmptyCartView';
 import { CartItemsList } from './CartItemsList';
 import { FreeDeliveryProgressCard } from './FreeDeliveryProgressCard';
 import { CheckoutFormFields } from './CheckoutFormFields';
-import { MapLocationPicker } from './MapLocationPicker';
 import { TotalsBreakdownCard } from './TotalsBreakdownCard';
 import { CartFooter } from './CartFooter';
 import { StockIssue, formatStockIssueMessage, getCartStockIssue } from '../../utils/stockUtils';
+
+const MapLocationPicker = lazy(() => import('./MapLocationPicker').then((module) => ({
+  default: module.MapLocationPicker,
+})));
 
 export const CartDrawer: React.FC = () => {
   const location = useLocation();
@@ -245,17 +248,19 @@ export const CartDrawer: React.FC = () => {
       )}
 
       {showMap && (
-        <MapLocationPicker
-          onLocationSelected={checkout.confirmLocation}
-          onClose={() => setShowMap(false)}
-          defaultLat={checkout.customerLat || undefined}
-          defaultLng={checkout.customerLng || undefined}
-          initialLocationSelected={checkout.locationConfirmed}
-          storeLat={checkout.storeLat}
-          storeLng={checkout.storeLng}
-          pricePerKm={checkout.pricePerKm}
-          minCustomerDistanceKm={checkout.minCustomerDistanceKm}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-[110] bg-black/60" />}>
+          <MapLocationPicker
+            onLocationSelected={checkout.confirmLocation}
+            onClose={() => setShowMap(false)}
+            defaultLat={checkout.customerLat || undefined}
+            defaultLng={checkout.customerLng || undefined}
+            initialLocationSelected={checkout.locationConfirmed}
+            storeLat={checkout.storeLat}
+            storeLng={checkout.storeLng}
+            pricePerKm={checkout.pricePerKm}
+            minCustomerDistanceKm={checkout.minCustomerDistanceKm}
+          />
+        </Suspense>
       )}
 
       {showReceipt && (

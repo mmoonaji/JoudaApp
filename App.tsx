@@ -1,6 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import * as Sentry from '@sentry/react';
 import { Wrench, Clock, Shield } from 'lucide-react';
 import { Layout } from './components/layout/Layout';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
@@ -24,7 +23,10 @@ import { SyncProvider } from './contexts/SyncContext';
 import { supabase } from './services/supabaseClient';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { ReloadPrompt } from './components/common/ReloadPrompt';
-import { fetchPublicSettingsFromSupabase } from './services/supabaseService';
+import {
+  fetchPublicSettingsFromSupabase,
+  refreshPublicSettingsFromSupabase,
+} from './services/supabaseService';
 
 const ONBOARDING_KEY = 'jouda_onboarding_seen_v1';
 
@@ -81,12 +83,11 @@ const AppContent: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
-  const [checkingMaintenance, setCheckingMaintenance] = useState(true);
-  
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [showExitToast, setShowExitToast] = useState(false);
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
   const isRecoveryUrl = () => {
     const hash = window.location.hash || '';
@@ -100,13 +101,15 @@ const AppContent: React.FC = () => {
       setIsPasswordRecovery(true);
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAdmin(!!session);
-      if (session?.user) {
-        Sentry.setUser({ id: session.user.id, email: session.user.email });
-      }
-      setCheckingAuth(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setIsAdmin(!!session);
+      })
+      .catch((error) => {
+        console.warn('Failed to restore admin session', error);
+        setIsAdmin(false);
+      })
+      .finally(() => setCheckingAuth(false));
 
     const {
       data: { subscription },
@@ -115,11 +118,6 @@ const AppContent: React.FC = () => {
         setIsPasswordRecovery(true);
       }
       setIsAdmin(!!session);
-      if (session?.user) {
-        Sentry.setUser({ id: session.user.id, email: session.user.email });
-      } else {
-        Sentry.setUser(null);
-      }
     });
 
     return () => subscription.unsubscribe();
@@ -137,34 +135,33 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
 
-  // Check maintenance mode on mount
   useEffect(() => {
-    const checkMaintenance = async () => {
-      try {
-        const data = await fetchPublicSettingsFromSupabase();
+    let isActive = true;
 
-        if (data) {
-          setMaintenanceMode(data.maintenance_mode || false);
-          setMaintenanceMessage(data.maintenance_message || '');
-        }
-      } catch (e) {
-        console.error('Failed to check maintenance mode:', e);
-      } finally {
-        setCheckingMaintenance(false);
+    const applyMaintenanceSettings = async (settingsRequest: ReturnType<typeof fetchPublicSettingsFromSupabase>) => {
+      const settings = await settingsRequest;
+      if (isActive && settings) {
+        setMaintenanceMode(settings.maintenance_mode || false);
+        setMaintenanceMessage(settings.maintenance_message || '');
       }
     };
 
-    checkMaintenance();
-    const interval = window.setInterval(checkMaintenance, 60000);
+    const refreshMaintenance = () => {
+      void applyMaintenanceSettings(refreshPublicSettingsFromSupabase());
+    };
+
+    void applyMaintenanceSettings(fetchPublicSettingsFromSupabase());
+    const interval = window.setInterval(refreshMaintenance, 60000);
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        checkMaintenance();
+        refreshMaintenance();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      isActive = false;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -253,7 +250,6 @@ const AppContent: React.FC = () => {
 
   const handleAdminLogout = async () => {
     navigate('/', { replace: true });
-    Sentry.setUser(null);
     // Add a tiny delay before signing out so React Router processes the navigation first
     setTimeout(async () => {
       await supabase.auth.signOut();
@@ -261,7 +257,7 @@ const AppContent: React.FC = () => {
     }, 50);
   };
 
-  if (checkingMaintenance || checkingAuth) {
+  if (isAdminRoute && checkingAuth) {
     return (
       <div className="fixed inset-0 z-[200] bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full" />
@@ -287,7 +283,7 @@ const AppContent: React.FC = () => {
   }
 
   // Handle Admin Routes completely outside the customer Layout
-  if (location.pathname.startsWith('/admin')) {
+  if (isAdminRoute) {
     if (!isAdmin && location.pathname !== '/admin/login') {
       // Redirect to login if not admin
       return <Navigate to="/admin/login" replace />;
