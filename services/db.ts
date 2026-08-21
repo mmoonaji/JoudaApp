@@ -1,9 +1,11 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Product, Recipe, Article, FAQItem } from './supabaseService';
+import type { Product, Recipe, Article, FAQItem } from './supabaseService';
 
 const DB_NAME = 'JoudaDB';
 const DB_VERSION = 2;
 const MAX_COMPLETED_ORDERS = 50;
+const RECIPE_PREVIEWS_KEY = 'recipePreviews';
+const ARTICLE_PREVIEWS_KEY = 'articlePreviews';
 
 export interface CompletedOrder {
   id: string;
@@ -231,6 +233,15 @@ export async function getCachedRecipes(): Promise<Recipe[]> {
   return recipes.map(({ _cachedAt, ...recipe }) => recipe as Recipe);
 }
 
+export async function cacheRecipePreviews(recipes: Recipe[]): Promise<void> {
+  await setMeta(RECIPE_PREVIEWS_KEY, recipes.slice(0, 7));
+}
+
+export async function getCachedRecipePreviews(): Promise<Recipe[]> {
+  const recipes = await getMeta<Recipe[]>(RECIPE_PREVIEWS_KEY);
+  return Array.isArray(recipes) ? recipes : [];
+}
+
 // ==========================
 // ARTICLES
 // ==========================
@@ -254,6 +265,15 @@ export async function getCachedArticles(): Promise<Article[]> {
   const db = await getDB();
   const articles = await db.getAll('articles');
   return articles.map(({ _cachedAt, ...article }) => article as Article);
+}
+
+export async function cacheArticlePreviews(articles: Article[]): Promise<void> {
+  await setMeta(ARTICLE_PREVIEWS_KEY, articles.slice(0, 5));
+}
+
+export async function getCachedArticlePreviews(): Promise<Article[]> {
+  const articles = await getMeta<Article[]>(ARTICLE_PREVIEWS_KEY);
+  return Array.isArray(articles) ? articles : [];
 }
 
 // ==========================

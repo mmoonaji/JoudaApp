@@ -68,8 +68,28 @@ export default defineConfig(() => {
             'assets/ui-vendor-*.js',
             'assets/supabase-vendor-*.js',
             'assets/HomePage-*.js',
+            'assets/HomePackagesCarousel-*.js',
+            'assets/AppImage-*.js',
+            'assets/KnowledgeHub-*.js',
+            'assets/imageCompression-*.js',
+            'assets/index-*.js',
+            'assets/stockUtils-*.js',
           ],
           runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/(?:object|render\/image)\/public\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'supabase-public-images',
+                expiration: {
+                  maxEntries: 80,
+                  maxAgeSeconds: 60 * 60 * 24 * 30
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
             {
               urlPattern: /^https:\/\/fonts\.bunny\.net\/.*/i,
               handler: 'CacheFirst',

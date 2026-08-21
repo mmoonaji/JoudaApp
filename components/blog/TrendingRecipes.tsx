@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, ChefHat, ArrowLeft } from 'lucide-react';
 import { fetchRecipePreviewsFromSupabase, Recipe } from '../../services/supabaseService';
+import { getCachedRecipePreviews } from '../../services/db';
 import { AppImage } from '../ui/AppImage';
 
 const RECIPE_IDX_KEY = 'jouda_recipe_idx_v2';
@@ -13,25 +14,39 @@ export const TrendingRecipes: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        localStorage.removeItem(LEGACY_RECIPE_LIST_KEY);
-        const list = await fetchRecipePreviewsFromSupabase();
+    let isActive = true;
+    let freshApplied = false;
+    localStorage.removeItem(LEGACY_RECIPE_LIST_KEY);
 
-        if (list.length > 0) {
-          const todayIdxStr = localStorage.getItem(RECIPE_IDX_KEY);
-          const todayIdx = todayIdxStr ? parseInt(todayIdxStr, 10) : 0;
-          const filtered = list
-            .filter((_, idx) => idx !== todayIdx)
-            .slice(0, 6);
-          setRecipes(filtered);
-        }
-      } catch {
-        /* silent */
-      }
+    const applyRecipes = (recipePreviews: Recipe[]) => {
+      const todayIdxStr = localStorage.getItem(RECIPE_IDX_KEY);
+      const todayIdx = todayIdxStr ? parseInt(todayIdxStr, 10) : 0;
+      setRecipes(recipePreviews.filter((_, idx) => idx !== todayIdx).slice(0, 6));
       setLoading(false);
     };
-    load();
+
+    const cachedRequest = getCachedRecipePreviews();
+    const freshRequest = fetchRecipePreviewsFromSupabase();
+
+    void cachedRequest.then((cachedPreviews) => {
+      if (!isActive || freshApplied || cachedPreviews.length === 0) return;
+      applyRecipes(cachedPreviews);
+    }).catch((cacheError) => {
+      console.warn('Failed to load cached recipe previews', cacheError);
+    });
+
+    void freshRequest.then((freshPreviews) => {
+      if (!isActive) return;
+      freshApplied = true;
+      applyRecipes(freshPreviews);
+    }).catch((requestError) => {
+      console.warn('Failed to refresh recipe previews', requestError);
+      if (isActive) setLoading(false);
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   const handleCardClick = () => {

@@ -23,7 +23,10 @@ The frontend is the customer app and admin dashboard. It reads public data from 
 - Public customer routes render immediately and apply maintenance settings asynchronously; only `/admin` routes wait for session restoration.
 - The public-settings request is shared and cached in memory so mount, polling, and visibility refreshes do not duplicate the same in-flight request.
 - Cart, map, and article detail bundles are deferred until needed; homepage recipe/article/package reads use compact preview queries.
+- Homepage recipe and article previews use separate IndexedDB meta entries: cached previews render first after the initial successful load, then Supabase refreshes them without overwriting full recipe/article records.
 - Public media URLs stay raw Supabase Storage URLs, and admin uploads return direct `public-assets` URLs instead of `/api/media`.
+- The PWA runtime cache keeps up to 80 previously viewed public Supabase Storage images for 30 days; REST and authenticated Storage responses are excluded.
+- The homepage and its static dependency chunks are precached so a previously installed/loaded PWA can reopen the homepage without a network connection.
 - Customer and admin image surfaces should use `AppImage` so broken URLs fall back instead of leaving skeletons or blank cells.
 - `AppImage` synchronizes its loaded state from the underlying image element on mount so cached images do not become transparent after route navigation.
 - Customer-facing first visible images should pass `priority` to `AppImage`; non-priority images default to lazy loading.

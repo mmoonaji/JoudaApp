@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Wallet, User, MessageCircle, MapPin, FileText, Map, Sparkles, Building, Truck } from 'lucide-react';
-import { MAX_DELIVERY_FEE } from '../../utils/distanceUtils';
+import { FULL_RATE_THRESHOLD } from '../../utils/distanceUtils';
 
 const arabicToEnglishNumbers = (str: string) => {
   const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -52,9 +52,10 @@ export const CheckoutFormFields: React.FC<CheckoutFormFieldsProps> = ({
   qualifiesForFree = false
 }) => {
   const [showNotes, setShowNotes] = useState(!!notes);
-  // Show distance-cap savings info card only if they are in Sana'a, not qualified for absolute free delivery, and rawFee is actually capped
-  const showSurpriseCard = !qualifiesForFree && deliveryZone === 'sanaa' && rawFee > MAX_DELIVERY_FEE && currentFee > 0;
+  // Show distance-cap savings info card when the company is subsidising any part of the delivery fee
+  const showSurpriseCard = !qualifiesForFree && deliveryZone === 'sanaa' && rawFee > currentFee && currentFee > 0;
   const savings = rawFee - currentFee;
+  const isFullRateDiscount = rawFee > FULL_RATE_THRESHOLD;
 
   return (
     <section className="mb-4 animate-fade-in">
@@ -241,12 +242,15 @@ export const CheckoutFormFields: React.FC<CheckoutFormFieldsProps> = ({
                       <span>🎉 مفاجأة من جوده!</span>
                     </p>
                     <p className="text-[11px] text-emerald-700/90 dark:text-emerald-400/90 leading-relaxed font-bold">
-                      لأن مشوارك بعيد وطلبت من التطبيق، جوده تتحمل الفارق لتوصيل طلبك بـ{' '}
+                      {isFullRateDiscount
+                        ? 'مشوارك بعيد، لكن جوده معك! خصم ثابت '
+                        : 'لأن مشوارك بعيد وطلبت من التطبيق، جوده تتحمل الفارق لتوصيل طلبك بـ'}
+                      {!isFullRateDiscount && ' '}
                       <span className="inline-flex items-center gap-0.5 font-black text-emerald-950 dark:text-white bg-white/70 dark:bg-gray-800/80 px-1.5 py-0.5 rounded-md border border-emerald-500/10 shadow-sm font-mono leading-none">
-                        {currentFee.toLocaleString('en-US')}
+                        {isFullRateDiscount ? savings.toLocaleString('en-US') : currentFee.toLocaleString('en-US')}
                         <span className="saudi-riyal mr-0.5">{"\u00ea"}</span>
                       </span>{' '}
-                      فقط (وفرت{' '}
+                      {isFullRateDiscount ? 'على التوصيل' : 'فقط'} (وفرت{' '}
                       <span className="inline-flex items-center gap-0.5 font-black text-emerald-950 dark:text-white bg-white/70 dark:bg-gray-800/80 px-1.5 py-0.5 rounded-md border border-emerald-500/10 shadow-sm font-mono leading-none">
                         {savings.toLocaleString('en-US')}
                         <span className="saudi-riyal mr-0.5">{"\u00ea"}</span>

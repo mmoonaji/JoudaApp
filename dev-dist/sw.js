@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-17772b39'], (function (workbox) { 'use strict';
+define(['./workbox-a1974cce'], (function (workbox) { 'use strict';
 
   self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -82,12 +82,21 @@ define(['./workbox-17772b39'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.81pcq061gcg"
+    "revision": "0.vbearb7dpbg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
+  workbox.registerRoute(/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/(?:object|render\/image)\/public\/.*/i, new workbox.CacheFirst({
+    "cacheName": "supabase-public-images",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 80,
+      maxAgeSeconds: 2592000
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
   workbox.registerRoute(/^https:\/\/fonts\.bunny\.net\/.*/i, new workbox.CacheFirst({
     "cacheName": "bunny-fonts-cache",
     plugins: [new workbox.ExpirationPlugin({

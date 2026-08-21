@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, Calendar, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchArticlePreviewsFromSupabase, Article } from '../services/supabaseService';
+import { getCachedArticlePreviews } from '../services/db';
 
 export const KnowledgeHub: React.FC = () => {
   const navigate = useNavigate();
@@ -13,12 +14,38 @@ export const KnowledgeHub: React.FC = () => {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   useEffect(() => {
-    const load = async () => {
-      const data = await fetchArticlePreviewsFromSupabase();
-      setArticles(data.slice(0, 5));
+    let isActive = true;
+    let freshApplied = false;
+
+    const applyArticles = (articlePreviews: Article[]) => {
+      const nextArticles = articlePreviews.slice(0, 5);
+      setArticles(nextArticles);
+      setActiveIndex((current) => nextArticles.length === 0 ? 0 : Math.min(current, nextArticles.length - 1));
       setLoading(false);
     };
-    load();
+
+    const cachedRequest = getCachedArticlePreviews();
+    const freshRequest = fetchArticlePreviewsFromSupabase();
+
+    void cachedRequest.then((cachedPreviews) => {
+      if (!isActive || freshApplied || cachedPreviews.length === 0) return;
+      applyArticles(cachedPreviews);
+    }).catch((cacheError) => {
+      console.warn('Failed to load cached article previews', cacheError);
+    });
+
+    void freshRequest.then((freshPreviews) => {
+      if (!isActive) return;
+      freshApplied = true;
+      applyArticles(freshPreviews);
+    }).catch((requestError) => {
+      console.warn('Failed to refresh article previews', requestError);
+      if (isActive) setLoading(false);
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
 

@@ -4,8 +4,12 @@ import {
   getCachedProducts,
   cacheRecipes,
   getCachedRecipes,
+  cacheRecipePreviews,
+  getCachedRecipePreviews,
   cacheArticles,
   getCachedArticles,
+  cacheArticlePreviews,
+  getCachedArticlePreviews,
   cacheFAQ,
   getCachedFAQ,
 } from './db';
@@ -457,7 +461,22 @@ export const fetchRecipesFromSupabase = async (): Promise<Recipe[]> => {
   return recipesFetchPromise;
 };
 
+const getCachedRecipePreviewFallback = async (): Promise<Recipe[]> => {
+  const cachedPreviews = await getCachedRecipePreviews().catch((cacheError) => {
+    console.warn('Failed to read cached recipe previews', cacheError);
+    return [];
+  });
+  if (cachedPreviews.length > 0) return cachedPreviews;
+
+  return getCachedRecipes().then((recipes) => recipes.slice(0, 7)).catch((cacheError) => {
+    console.warn('Failed to read cached recipes', cacheError);
+    return [];
+  });
+};
+
 export const fetchRecipePreviewsFromSupabase = async (): Promise<Recipe[]> => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return getCachedRecipePreviewFallback();
+
   try {
     const { data, error } = await supabase
       .from('recipes')
@@ -466,10 +485,12 @@ export const fetchRecipePreviewsFromSupabase = async (): Promise<Recipe[]> => {
       .limit(7);
 
     if (error) throw error;
-    return (data || []).map(recipeFromRow);
+    const recipePreviews = (data || []).map(recipeFromRow);
+    try { await cacheRecipePreviews(recipePreviews); } catch (cacheError) { console.warn('Failed to cache recipe previews', cacheError); }
+    return recipePreviews;
   } catch (error) {
     console.warn('Supabase recipe previews failed, trying IndexedDB cache...', error);
-    return getCachedRecipes().then((recipes) => recipes.slice(0, 7)).catch(() => []);
+    return getCachedRecipePreviewFallback();
   }
 };
 
@@ -501,7 +522,22 @@ export const fetchArticlesFromSupabase = async (): Promise<Article[]> => {
   }
 };
 
+const getCachedArticlePreviewFallback = async (): Promise<Article[]> => {
+  const cachedPreviews = await getCachedArticlePreviews().catch((cacheError) => {
+    console.warn('Failed to read cached article previews', cacheError);
+    return [];
+  });
+  if (cachedPreviews.length > 0) return cachedPreviews;
+
+  return getCachedArticles().then((articles) => articles.slice(0, 5)).catch((cacheError) => {
+    console.warn('Failed to read cached articles', cacheError);
+    return [];
+  });
+};
+
 export const fetchArticlePreviewsFromSupabase = async (): Promise<Article[]> => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return getCachedArticlePreviewFallback();
+
   try {
     const { data, error } = await supabase
       .from('articles')
@@ -510,10 +546,12 @@ export const fetchArticlePreviewsFromSupabase = async (): Promise<Article[]> => 
       .limit(5);
 
     if (error) throw error;
-    return (data || []).map(articleFromRow);
+    const articlePreviews = (data || []).map(articleFromRow);
+    try { await cacheArticlePreviews(articlePreviews); } catch (cacheError) { console.warn('Failed to cache article previews', cacheError); }
+    return articlePreviews;
   } catch (error) {
     console.warn('Supabase article previews failed, trying IndexedDB cache...', error);
-    return getCachedArticles().then((articles) => articles.slice(0, 5)).catch(() => []);
+    return getCachedArticlePreviewFallback();
   }
 };
 

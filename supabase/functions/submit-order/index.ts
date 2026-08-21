@@ -20,6 +20,7 @@ interface Config {
   joudaServiceKey: string;
   inventoryUrl: string;
   inventoryKey: string;
+  pushWebhookSecret: string;
   systemUserUuid: string;
   onlineWarehouseId: string;
 }
@@ -85,11 +86,13 @@ function loadConfiguration(): Config {
     joudaServiceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
     inventoryUrl: Deno.env.get('INVENTORY_SUPABASE_URL') || '',
     inventoryKey: Deno.env.get('INVENTORY_SERVICE_ROLE_KEY') || '',
+    pushWebhookSecret: Deno.env.get('PUSH_WEBHOOK_SECRET') || '',
     systemUserUuid: Deno.env.get('SYSTEM_USER_UUID') || '',
     onlineWarehouseId: Deno.env.get('ONLINE_WAREHOUSE_ID') || '',
   };
 
-  const missing = Object.entries(config).filter(([k, v]) => !v && k !== 'joudaAnonKey');
+  const optionalKeys = new Set(['joudaAnonKey', 'pushWebhookSecret']);
+  const missing = Object.entries(config).filter(([key, value]) => !value && !optionalKeys.has(key));
   if (missing.length > 0) {
     throw new Error(`Missing server configuration: ${missing.map(m => m[0]).join(', ')}`);
   }
@@ -406,6 +409,41 @@ async function dispatchTelegramNotification(message: string) {
   }
 }
 
+async function dispatchOrderPush(
+  config: Config,
+  order: {
+    orderId: string;
+    orderNumber: string;
+    customerName: string;
+    customerAddress?: string;
+    total: number;
+  },
+) {
+  if (!config.pushWebhookSecret) {
+    throw new Error('PUSH_WEBHOOK_SECRET is not configured');
+  }
+
+  const response = await fetch(`${config.inventoryUrl}/functions/v1/send-order-push`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-push-secret': config.pushWebhookSecret,
+    },
+    body: JSON.stringify({
+      order_id: order.orderId,
+      order_number: order.orderNumber,
+      customer_name: order.customerName,
+      customer_address: order.customerAddress,
+      total: order.total,
+    }),
+  });
+
+  const result = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+  if (!response.ok || result?.success === false) {
+    throw new Error(result?.error || `Push gateway returned ${response.status}`);
+  }
+}
+
 // --- 5. Main Route Handler ---
 Deno.serve(async (req: Request) => {
   // 1. CORS
@@ -508,7 +546,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ success: false, message: 'فشل حفظ الطلب محلياً. تم إلغاء الحجز تلقائياً.' }, 200);
     }
 
-    // 8. Telegram Background Notification
+    // 8. Telegram and Web Push Background Notifications
     if (rpcSuccess && orderRecord) {
       const notificationData = {
         orderId: orderRecord.id,
@@ -526,13 +564,25 @@ Deno.serve(async (req: Request) => {
       };
 
       const tgMessage = buildTelegramMessage(notificationData);
-      const notifyPromise = dispatchTelegramNotification(tgMessage).catch(err => {
+      const telegramNotificationPromise = dispatchTelegramNotification(tgMessage).catch(err => {
         console.error('Error sending Telegram notification:', err);
+      });
+      const pushNotificationPromise = dispatchOrderPush(config, {
+        orderId: orderRecord.id,
+        orderNumber,
+        customerName: payload.customer_name,
+        customerAddress: payload.customer_address,
+        total: notificationData.total,
+      }).catch(err => {
+        console.error('Push notification failed:', err);
       });
 
       // Non-blocking wait
       if (typeof (globalThis as any).EdgeRuntime !== 'undefined') {
-        (globalThis as any).EdgeRuntime.waitUntil(notifyPromise);
+        (globalThis as any).EdgeRuntime.waitUntil(Promise.all([
+          telegramNotificationPromise,
+          pushNotificationPromise,
+        ]));
       }
     }
 

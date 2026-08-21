@@ -18,20 +18,43 @@ export function calculateDeliveryFee(distanceKm: number, pricePerKm: number = 15
 
 // ── Delivery fee bounds ──
 export const MIN_DELIVERY_FEE = 500;
-export const MAX_DELIVERY_FEE = 1000;
+/** Cap applied to the subsidised tier (rawFee 1001–1500) */
+export const SUBSIDISED_CAP = 1000;
+/** Threshold above which the flat discount applies instead of the cap */
+export const FULL_RATE_THRESHOLD = 1500;
+/** Fixed discount the company absorbs for very long distances (rawFee > 1500) */
+export const SUBSIDY_CAP = 500;
 
 export interface DeliveryFeeDetails {
   /** Raw unclamped fee based on actual distance */
   rawFee: number;
-  /** Fee clamped between MIN and MAX bounds */
+  /** Fee after applying the 4-tier delivery model */
   boundedFee: number;
 }
 
+/**
+ * 4-tier delivery fee model:
+ * 1. rawFee ≤ 500        → 500       (minimum to protect driver)
+ * 2. 500 < rawFee ≤ 1000 → rawFee    (actual cost, no subsidy)
+ * 3. 1000 < rawFee ≤ 1500→ 1000      (capped, company absorbs up to 500)
+ * 4. rawFee > 1500       → rawFee-500 (flat 500 discount from company)
+ */
 export function calculateDeliveryFeeDetails(
   distanceKm: number,
   pricePerKm: number = 150
 ): DeliveryFeeDetails {
   const rawFee = calculateDeliveryFee(distanceKm, pricePerKm);
-  const boundedFee = Math.min(MAX_DELIVERY_FEE, Math.max(MIN_DELIVERY_FEE, rawFee));
+
+  let boundedFee: number;
+  if (rawFee <= MIN_DELIVERY_FEE) {
+    boundedFee = MIN_DELIVERY_FEE;
+  } else if (rawFee <= SUBSIDISED_CAP) {
+    boundedFee = rawFee;
+  } else if (rawFee <= FULL_RATE_THRESHOLD) {
+    boundedFee = SUBSIDISED_CAP;
+  } else {
+    boundedFee = rawFee - SUBSIDY_CAP;
+  }
+
   return { rawFee, boundedFee };
 }

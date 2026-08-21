@@ -44,6 +44,7 @@ test('homepage sections use compact preview queries and lazy detail modules', ()
   const packages = source('components/home/HomePackagesCarousel.tsx');
   const recipes = source('components/blog/TrendingRecipes.tsx');
   const articles = source('pages/KnowledgeHub.tsx');
+  const app = source('App.tsx');
 
   assert.match(service, /export const fetchFeaturedPackagesFromSupabase/);
   assert.match(service, /export const fetchRecipePreviewsFromSupabase/);
@@ -56,7 +57,7 @@ test('homepage sections use compact preview queries and lazy detail modules', ()
   assert.doesNotMatch(packages, /fetchProductsFromSupabase/);
   assert.match(recipes, /fetchRecipePreviewsFromSupabase/);
   assert.match(articles, /fetchArticlePreviewsFromSupabase/);
-  assert.match(articles, /lazy\(\(\) => import\('\.\.\/components\/modals\/ArticleModal'\)/);
+  assert.match(app, /const ArticlePage = lazy\(\(\) => import\('\.\/pages\/ArticlePage'\)/);
 });
 
 test('featured package previews retain component prices for discount calculation', () => {
