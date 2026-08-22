@@ -19,7 +19,16 @@ const createClientOptions = (headers?: Record<string, string>) => {
   };
 };
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', createClientOptions());
+let _supabase: ReturnType<typeof createClient<any>>;
+try {
+  _supabase = createClient<any>(supabaseUrl || '', supabaseAnonKey || '', createClientOptions());
+} catch (e) {
+  console.error('Failed to create Supabase client — check env variables', e);
+  // Provide a non-functional client so the rest of the app can still mount
+  // and show a user-friendly error instead of a white screen.
+  _supabase = createClient<any>('https://placeholder.supabase.co', 'placeholder', createClientOptions());
+}
+export const supabase = _supabase;
 
 const clientCache: Record<string, typeof supabase> = {};
 
@@ -29,11 +38,16 @@ export const getSupabaseClient = (phone?: string) => {
   if (!cleanPhone) return supabase;
 
   if (!clientCache[cleanPhone]) {
-    clientCache[cleanPhone] = createClient(
-      supabaseUrl || '',
-      supabaseAnonKey || '',
-      createClientOptions({ 'x-customer-phone': cleanPhone }),
-    );
+    try {
+      clientCache[cleanPhone] = createClient<any>(
+        supabaseUrl || 'https://placeholder.supabase.co',
+        supabaseAnonKey || 'placeholder',
+        createClientOptions({ 'x-customer-phone': cleanPhone }),
+      );
+    } catch (e) {
+      console.warn('Failed to create customer Supabase client, using fallback', e);
+      clientCache[cleanPhone] = supabase;
+    }
   }
   return clientCache[cleanPhone];
 };

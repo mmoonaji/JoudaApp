@@ -59,6 +59,8 @@ export default defineConfig(() => {
           ]
         },
         workbox: {
+          cleanupOutdatedCaches: true,
+          navigateFallback: 'index.html',
           globPatterns: [
             'index.html',
             'apple-touch-icon.png',

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import {
   getPendingOrders,
   removePendingOrder,
@@ -17,11 +17,29 @@ interface SyncContextType {
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
 
+// M3: ترجمة رسائل الأخطاء التقنية لرسائل عربية مفهومة للمستخدم
+const friendlyErrorMessage = (message: string | undefined): string => {
+  if (!message) return 'حدث خطأ غير متوقع';
+  const lower = message.toLowerCase();
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch'))
+    return 'تعذر الاتصال بالخادم';
+  if (lower.includes('timeout')) return 'انتهت مهلة الاتصال';
+  if (lower.includes('cors')) return 'مشكلة في إعدادات الاتصال';
+  if (lower.includes('quota')) return 'مساحة التخزين ممتلئة';
+  return 'تعذر إرسال الطلب، سنحاول مرة أخرى';
+};
+
 export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
+
+  // M2: refs لتجنب إعادة إنشاء الـ interval مع كل تغيير في state
+  const isSyncingRef = useRef(isSyncing);
+  const pendingCountRef = useRef(pendingCount);
+  useEffect(() => { isSyncingRef.current = isSyncing; }, [isSyncing]);
+  useEffect(() => { pendingCountRef.current = pendingCount; }, [pendingCount]);
 
   const updatePendingCount = useCallback(async () => {
     try {
@@ -32,7 +50,7 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const triggerSync = useCallback(async () => {
     if (!navigator.onLine) return;
-    if (isSyncing) return;
+    if (isSyncingRef.current) return;
 
     setIsSyncing(true);
     setSyncErrors([]);
@@ -49,11 +67,13 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await removePendingOrder(order.id);
           } else {
             await updatePendingOrderError(order.id, result.message);
-            errors.push(`طلب ${order.id}: ${result.message}`);
+            // M3: رسائل عربية مفهومة بدل رسائل تقنية
+            errors.push(friendlyErrorMessage(result.message));
           }
         } catch (error: any) {
           await updatePendingOrderError(order.id, error.message || 'Unknown error');
-          errors.push(`طلب ${order.id}: ${error.message || 'خطأ غير معروف'}`);
+          // M3: رسائل عربية مفهومة
+          errors.push(friendlyErrorMessage(error.message));
         }
       }
 
@@ -67,9 +87,10 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await updatePendingCount();
       setIsSyncing(false);
     }
-  }, [isSyncing, updatePendingCount]);
+  }, [updatePendingCount]);
 
   // Listen for online and pending-order events
+  // M2: triggerSync الآن مستقر لأنه يستخدم ref بدل state
   useEffect(() => {
     const handleOnline = () => {
       triggerSync();
@@ -83,20 +104,21 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [triggerSync, updatePendingCount]);
 
-  // Check pending count on mount and periodically
+  // M2: Check pending count on mount and periodically
+  // الـ interval يُنشأ مرة واحدة فقط ويستخدم refs للقيم المتغيرة
   useEffect(() => {
     updatePendingCount();
 
     const interval = setInterval(() => {
       updatePendingCount();
       // Auto-sync if online and has pending orders
-      if (navigator.onLine && pendingCount > 0 && !isSyncing) {
+      if (navigator.onLine && pendingCountRef.current > 0 && !isSyncingRef.current) {
         triggerSync();
       }
     }, 30000); // Every 30 seconds
 
     return () => clearInterval(interval);
-  }, [updatePendingCount, pendingCount, isSyncing, triggerSync]);
+  }, [updatePendingCount, triggerSync]);
 
   return (
     <SyncContext.Provider

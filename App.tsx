@@ -235,7 +235,7 @@ const AppContent: React.FC = () => {
       clearTimeout(toastTimeout);
       listenerPromise.then(l => {
         if (l) l.remove();
-      });
+      }).catch(() => {});
     };
   }, [location.pathname, navigate]);
 
@@ -253,8 +253,13 @@ const AppContent: React.FC = () => {
     navigate('/', { replace: true });
     // Add a tiny delay before signing out so React Router processes the navigation first
     setTimeout(async () => {
-      await supabase.auth.signOut();
-      window.location.href = '/';
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.warn('Sign-out failed', e);
+      } finally {
+        window.location.href = '/';
+      }
     }, 50);
   };
 

@@ -40,7 +40,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ showError 
       setStats({
         totalProducts: productsData?.length || 0,
         activeProducts: productsData?.filter(p => p.is_active).length || 0,
-        lastSyncTime: syncData && syncData.length > 0 ? new Date(syncData[0].created_at).toLocaleString('ar-SA') : 'غير متوفر',
+        lastSyncTime: syncData && syncData.length > 0 ? new Date(syncData[0].created_at).toLocaleString('en-GB') : 'غير متوفر',
         syncStatus: syncData && syncData.length > 0 ? syncData[0].status : 'unknown',
         syncError: syncData && syncData.length > 0 ? syncData[0].error_message || '' : '',
         syncCount: syncData && syncData.length > 0 ? syncData[0].items_count || 0 : 0

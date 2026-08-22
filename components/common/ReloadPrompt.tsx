@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Sparkles, RefreshCw, X } from 'lucide-react';
 
 export const ReloadPrompt: React.FC = () => {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const visibilityHandlerRef = useRef<(() => void) | null>(null);
+
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -10,22 +13,33 @@ export const ReloadPrompt: React.FC = () => {
     onRegistered(r) {
       if (r) {
         // فحص التحديثات كل ساعة بصمت
-        setInterval(() => {
+        intervalRef.current = setInterval(() => {
           r.update();
         }, 60 * 60 * 1000);
 
         // فحص التحديثات كلما عاد العميل للتطبيق من الخلفية
-        document.addEventListener('visibilitychange', () => {
+        visibilityHandlerRef.current = () => {
           if (document.visibilityState === 'visible') {
             r.update();
           }
-        });
+        };
+        document.addEventListener('visibilitychange', visibilityHandlerRef.current);
       }
     },
     onRegisterError(error) {
       console.error('SW registration error', error);
     },
   });
+
+  // M5: تنظيف الـ interval و event listener عند إزالة المكون
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (visibilityHandlerRef.current) {
+        document.removeEventListener('visibilitychange', visibilityHandlerRef.current);
+      }
+    };
+  }, []);
 
   if (!needRefresh) return null;
 

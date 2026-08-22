@@ -1,6 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 interface Props {
   children: ReactNode;
@@ -77,13 +76,13 @@ export class ErrorBoundary extends Component<Props, State> {
                 إعادة تحميل
               </button>
 
-              <Link
-                to="/"
+              <a
+                href="/"
                 className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
               >
                 <Home className="w-4 h-4" />
                 الرئيسية
-              </Link>
+              </a>
             </div>
           </div>
         </div>

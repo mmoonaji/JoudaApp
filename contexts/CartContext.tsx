@@ -43,6 +43,7 @@ interface CartContextType {
   getItemQuantity: (name: string) => number;
   lastAddedItem: string | null; // For triggering notifications
   pendingOrdersCount: number; // Number of offline pending orders
+  isCartLoaded: boolean; // M1: true after IDB load completes
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -52,6 +53,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState<string | null>(null);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [isCartLoaded, setIsCartLoaded] = useState(false); // M1: يمنع وميض السلة
   // #13: ref to skip first IDB save (items start as [] before load)
   const isFirstRender = useRef(true);
 
@@ -68,13 +70,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (legacyCart) {
             const parsed = JSON.parse(legacyCart);
             setItems(parsed);
-            // Migrate to IndexedDB
-            await saveCartToDB(parsed);
-            localStorage.removeItem('jouda_cart_v2');
+            // M4: Migrate to IndexedDB — only remove localStorage after confirmed save
+            try {
+              await saveCartToDB(parsed);
+              localStorage.removeItem('jouda_cart_v2');
+            } catch (migrationError) {
+              console.warn('Cart migration to IDB failed, keeping localStorage backup', migrationError);
+            }
           }
         }
       } catch (e) {
         console.warn('Failed to load cart from IndexedDB', e);
+      } finally {
+        setIsCartLoaded(true); // M1: السلة تحملت (سواء نجحت أو فشلت)
       }
     };
     loadCart();
@@ -96,7 +104,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isFirstRender.current = false;
       return;
     }
-    if (items.length === 0) return; // Don't write empty cart unnecessarily
     const saveCart = async () => {
       try {
         await saveCartToDB(items);
@@ -403,6 +410,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getItemQuantity,
     lastAddedItem,
     pendingOrdersCount,
+    isCartLoaded,
   }), [
     items,
     addToCart,
@@ -420,6 +428,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getItemQuantity,
     lastAddedItem,
     pendingOrdersCount,
+    isCartLoaded,
   ]);
 
   return (
