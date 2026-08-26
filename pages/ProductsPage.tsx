@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Search, ChevronDown, Sparkles } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useFavorites } from '../contexts/FavoritesContext';
-import { fetchProductsFromSupabase, Product } from '../services/supabaseService';
-import { getCachedProducts } from '../services/db';
+import { fetchProductsFromSupabase, fetchRecipesFromSupabase, Product, Recipe } from '../services/supabaseService';
+import { getCachedProducts, getCachedRecipes } from '../services/db';
 import { ProductDetailsModal } from '../components/modals/ProductDetailsModal';
 import { ProductRequestModal } from '../components/modals/ProductRequestModal';
 import { useDebounce } from '../hooks/useDebounce';
@@ -21,11 +22,13 @@ interface ProductsPageProps {
 }
 
 export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 'store' }) => {
+  const navigate = useNavigate();
   const { addToCart, decreaseQuantityByName, getItemQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
   const [bakeryProducts, setBakeryProducts] = useState<Product[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   
@@ -80,18 +83,28 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
         loadedFromCache = true;
         if (showLoading) setLoading(false); // Hide loader instantly
       }
+      const cachedRec = await getCachedRecipes();
+      if (cachedRec.length > 0) {
+        setRecipes(cachedRec);
+      }
     } catch (e) {
-      console.warn('Failed to load cached products', e);
+      console.warn('Failed to load cached products/recipes', e);
     }
     
     // 2. Always refresh from Supabase in background
     try {
-      const allProducts = await fetchProductsFromSupabase();
+      const [allProducts, allRecipes] = await Promise.all([
+        fetchProductsFromSupabase(),
+        fetchRecipesFromSupabase().catch(() => [])
+      ]);
       // Split: bakery items go to bakery tab, everything else to store tab
       const storeData = allProducts.filter(p => p.source !== 'bakery');
       const bakeryData = allProducts.filter(p => p.source === 'bakery');
       setStoreProducts(storeData);
       setBakeryProducts(bakeryData);
+      if (allRecipes && allRecipes.length > 0) {
+        setRecipes(allRecipes);
+      }
       if (storeData.length === 0 && bakeryData.length === 0) {
         setError(true);
       }
@@ -140,24 +153,20 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
     result.sort((a, b) => {
       switch (filters.sort) {
         case 'price-asc':
-          // Available first, then by price
           if (a.inStock !== false && b.inStock === false) return -1;
           if (a.inStock === false && b.inStock !== false) return 1;
           const priceA = a.price || Infinity;
           const priceB = b.price || Infinity;
           return priceA - priceB;
         case 'price-desc':
-          // Available first, then by price
           if (a.inStock !== false && b.inStock === false) return -1;
           if (a.inStock === false && b.inStock !== false) return 1;
           return (b.price || 0) - (a.price || 0);
         case 'name-asc':
-          // Available first, then by name
           if (a.inStock !== false && b.inStock === false) return -1;
           if (a.inStock === false && b.inStock !== false) return 1;
           return a.name.localeCompare(b.name, 'ar');
         case 'popular':
-          // Available first, then popular
           if (a.inStock !== false && b.inStock === false) return -1;
           if (a.inStock === false && b.inStock !== false) return 1;
           if (a.popular && !b.popular) return -1;
@@ -165,7 +174,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
           return 0;
         case 'default':
         default:
-          // Available first, then popular, then by name
           if (a.inStock !== false && b.inStock === false) return -1;
           if (a.inStock === false && b.inStock !== false) return 1;
           if (a.popular && !b.popular) return -1;
@@ -420,12 +428,29 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
         />
       )}
 
-      {selectedProductDetails && (
-        <ProductDetailsModal
-           product={selectedProductDetails}
-           onClose={() => setSelectedProductDetails(null)}
-        />
-      )}
+      {selectedProductDetails && (() => {
+        const barcode = selectedProductDetails.barcode;
+        const name = selectedProductDetails.name.toLowerCase();
+        const relatedRecipes = recipes.filter(r =>
+          (r.main_product && r.main_product === barcode) ||
+          (r.mainProduct && r.mainProduct === barcode) ||
+          (r.bundle_items && r.bundle_items.includes(barcode)) ||
+          (r.bundleItems && r.bundleItems.includes(barcode)) ||
+          (r.title && r.title.toLowerCase().includes(name))
+        );
+
+        return (
+          <ProductDetailsModal
+             product={selectedProductDetails}
+             relatedRecipes={relatedRecipes}
+             onOpenRecipe={(recipeId) => {
+               setSelectedProductDetails(null);
+               navigate(`/recipes?id=${recipeId}`);
+             }}
+             onClose={() => setSelectedProductDetails(null)}
+          />
+        );
+      })()}
 
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {

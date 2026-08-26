@@ -146,17 +146,17 @@ export const formatRecipeAddSummary = (addedCount: number, skipped: RecipeSkippe
   if (skipped.length === 0) return null;
 
   const skippedLines = skipped.map((item) => {
-    if (item.reason === 'not_found') return `- ${item.name}: غير مربوط بمنتج في النظام`;
-    if (item.reason === 'out_of_stock') return `- ${item.name}: غير متوفر حالياً`;
-    return `- ${item.name}: المتاح ${item.availableQuantity ?? 0} فقط`;
+    if (item.reason === 'not_found') return `• ${item.name}: مش متوفر في المتجر حالياً`;
+    if (item.reason === 'out_of_stock') return `• ${item.name}: نفدت الكمية`;
+    return `• ${item.name}: المتبقي منه (${item.availableQuantity ?? 0}) فقط`;
   });
 
   return [
     addedCount > 0
-      ? `تمت إضافة ${addedCount} من المنتجات المتوفرة.`
-      : 'لم تتم إضافة أي منتج.',
+      ? `ضفنا لك ${addedCount} من المقادير المتوفرة بالسلة! 🎉`
+      : 'للأسف ما قدرنا نضيف المقادير للسلة:',
     '',
-    'لم تُضف العناصر التالية:',
+    'الأصناف التي لم تُضف:',
     ...skippedLines,
   ].join('\n');
 };

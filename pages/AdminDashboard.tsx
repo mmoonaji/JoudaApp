@@ -150,6 +150,7 @@ export const AdminDashboard: React.FC = () => {
 
       {!isInitialLoad && activeTab === 'recipes' && (
         <RecipeManager
+          products={products}
           recipes={recipes}
           showSuccess={showSuccess}
           showError={showError}
