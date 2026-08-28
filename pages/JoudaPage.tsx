@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, ChevronDown, Quote, Star, ArrowUpRight, Instagram, Facebook, Globe, ShoppingBag, MessageCircle } from 'lucide-react';
+import { MapPin, ChevronDown, Quote, Star, ArrowUpRight, Instagram, Facebook, Globe, ShoppingBag, MessageCircle, MessageSquare } from 'lucide-react';
 import { STORE_CONFIG, APP_LOGO } from '../constants';
 import { fetchFAQFromSupabase, FAQItem } from '../services/supabaseService';
+import { SuggestionModal } from '../components/modals/SuggestionModal';
 
 export const JoudaPage: React.FC = () => {
   const navigate = useNavigate();
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
   const [isLoadingFaqs, setIsLoadingFaqs] = useState(true);
+  const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
   const whatsappLink = `https://api.whatsapp.com/send?phone=${STORE_CONFIG.PHONE.replace(/\D/g, '')}`;
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -420,7 +422,28 @@ export const JoudaPage: React.FC = () => {
               </div>
               <ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-green-500 shrink-0" />
            </a>
+
+           {/* Suggestion Card */}
+           <button
+              onClick={() => setIsSuggestionModalOpen(true)}
+              className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-brand-200 hover:bg-brand-50/50 dark:hover:bg-brand-950/10 transition-all shadow-sm group active:scale-[0.99] text-right"
+           >
+              <div className="flex items-center gap-3.5 flex-1 min-w-0 text-right">
+                 <div className="bg-brand-50 dark:bg-brand-950/30 p-3 rounded-full text-brand-600 dark:text-brand-400 shrink-0">
+                    <MessageSquare className="w-5 h-5" />
+                 </div>
+                 <div className="min-w-0">
+                    <span className="block text-[15px] font-bold text-gray-900 dark:text-white group-hover:text-brand-600 leading-normal">شاركنا اقتراحك أو رأيك</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate block mt-0.5">صوتك يساعدنا نطور خدماتنا ومنتجاتنا</span>
+                 </div>
+              </div>
+              <ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-brand-500 shrink-0" />
+           </button>
         </div>
+
+        {isSuggestionModalOpen && (
+           <SuggestionModal onClose={() => setIsSuggestionModalOpen(false)} />
+        )}
 
         {/* Footer */}
         <div className="pt-2 text-center pb-4">

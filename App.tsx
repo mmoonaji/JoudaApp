@@ -15,6 +15,7 @@ const ArticlePage = lazy(() => import('./pages/ArticlePage').then(m => ({ defaul
 const AboutPageRoute = lazy(() => import('./pages/AboutPageRoute').then(m => ({ default: m.AboutPageRoute })));
 const HealthPage = lazy(() => import('./pages/HealthPage').then(m => ({ default: m.HealthPage })));
 const OrdersPage = lazy(() => import('./pages/OrdersPage').then(m => ({ default: m.OrdersPage })));
+const ScannerPage = lazy(() => import('./pages/ScannerPage').then(m => ({ default: m.ScannerPage })));
 import { Onboarding } from './components/ui/Onboarding';
 import { OfflineIndicator } from './components/layout/OfflineIndicator';
 import { useScrollToTop, useLocalStorage, handleBackButton } from './hooks';
@@ -352,6 +353,7 @@ const AppContent: React.FC = () => {
             <Route path="/orders" element={<OrdersPage isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />} />
             <Route path="/about" element={<AboutPageRoute />} />
             <Route path="/health" element={<HealthPage />} />
+            <Route path="/scanner" element={<ScannerPage />} />
           </Routes>
         </Suspense>
       </Layout>

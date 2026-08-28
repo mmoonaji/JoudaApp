@@ -1,0 +1,22 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "jouda_onboarding_seen_v1",
+          "value": "true"
+        },
+        {
+          "name": "darkMode",
+          "value": "false"
+        },
+        {
+          "name": "sb-unsqyovqzsgmxacrqunh-auth-token",
+          "value": "{\"access_token\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJub25lIn0.eyJyb2xlIjoiYXV0aGVudGljYXRlZCIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJlbWFpbCI6ImZpZ21hLXByZXZpZXdAZXhhbXBsZS5jb20iLCJleHAiOjE4OTM0NTYwMDB9.preview\",\"refresh_token\":\"figma-preview-refresh\",\"expires_at\":1893456000,\"expires_in\":86400,\"token_type\":\"bearer\",\"user\":{\"id\":\"00000000-0000-0000-0000-000000000000\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"figma-preview@example.com\"}}"
+        }
+      ]
+    }
+  ]
+}

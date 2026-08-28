@@ -90,7 +90,7 @@ npx cap open android
 | `submit-order` | `supabase/functions/submit-order/index.ts` | `verify_jwt=true` في `supabase/config.toml` | استقبال طلب التطبيق، إنشاء quotation في Inventory، إنشاء `customer_orders` في JoudaApp |
 | `sync-products` | `supabase/functions/sync-products/index.ts` | `verify_jwt=false`; يتحقق من `WEBHOOK_SECRET` | مزامنة منتجات Inventory إلى JoudaApp |
 | `update-inventory` | `supabase/functions/update-inventory/index.ts` | يتحقق من JWT داخل الكود ويقبل فقط `joudafood@gmail.com`; تحقق من JWT deployment setting في Supabase Dashboard | تحديث حقول مملوكة للمخزون مثل `category` و`is_stock_tracked` |
-| `analyze-product` | `supabase/functions/analyze-product/index.ts` | يستخدم `GEMINI_API_KEY` ويقرأ المنتجات النشطة؛ تحقق من JWT deployment setting في Supabase Dashboard | تحليل صورة/اسم منتج للمستخدم |
+| `analyze-product` | `supabase/functions/analyze-product/index.ts` | يستخدم `GEMINI_API_KEY` ويقرأ المنتجات النشطة؛ تحقق من JWT deployment setting في Supabase Dashboard | فاحص الجلوتين V7: استخراج الأدلة المنظمة عبر Gemini وتطبيق مصفوفة أمان السيلياك الحتمية في TypeScript ومطابقة البدائل بالباركود والسعر |
 
 `telegram-bot` فقط هو مجلد متعدد الملفات. بقية الدوال مستقلة في مجلداتها.
 

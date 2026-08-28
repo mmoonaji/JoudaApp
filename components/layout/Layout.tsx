@@ -34,8 +34,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, isDarkMode, toggleDark
 
       <div className="w-full max-w-md min-h-screen bg-warm-50 dark:bg-gray-900 shadow-[0_0_50px_rgba(0,0,0,0.05)] dark:shadow-none flex flex-col relative border-x border-gray-200 dark:border-gray-800">
         <Header 
-          isDarkMode={isDarkMode} 
-          toggleDarkMode={toggleDarkMode} 
           onHelpClick={onHelpClick}
           isAdmin={isAdmin}
           onAdminLogout={onAdminLogout}

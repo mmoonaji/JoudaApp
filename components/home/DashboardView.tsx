@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { HomePackagesCarousel } from './HomePackagesCarousel';
 import { TrendingRecipes } from '../blog/TrendingRecipes';
 import { KnowledgeHub } from '../../pages/KnowledgeHub';
-import { ScanLine, ChefHat, Store } from 'lucide-react';
+import { ScanLine, ChefHat, Store, Sparkles, ArrowLeft } from 'lucide-react';
 
-// #21: Updated greeting buckets — more natural Arabic expressions
 const getGreeting = () => {
   const hour = new Date().getHours();
   if (hour < 6)  return ['ليلتك سعيدة', '🌙'];
@@ -16,8 +15,7 @@ const getGreeting = () => {
 };
 
 interface DashboardViewProps {
-  // #25: prop instead of window.dispatchEvent
-  onOpenScanner: () => void;
+  onOpenScanner?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) => {
@@ -25,17 +23,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) =
 
   const [greeting, icon] = getGreeting();
 
-  // #11: useState initializer so it reads localStorage once (not on every render)
-  // and is reactive to changes within the same tab
   const [userName] = useState<string>(() => {
     const stored = localStorage.getItem('jouda_customer_name');
     return stored?.split(' ')[0] ?? '';
   });
 
+  const handleScannerClick = () => {
+    if (onOpenScanner) {
+      onOpenScanner();
+    } else {
+      navigate('/scanner');
+    }
+  };
+
   return (
     <div className="animate-fade-in flex flex-col">
       {/* iOS Style Minimal Hero */}
-      <div className="mt-4 mb-4 px-4">
+      <div className="mt-4 mb-3.5 px-4">
         <h1 className="text-[20px] font-black text-gray-900 dark:text-white mb-1 tracking-tight flex items-center gap-2">
           <span>{greeting}{userName && `، ${userName}`}</span>
           <span className="text-xl">{icon}</span>
@@ -45,24 +49,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) =
         </p>
       </div>
 
-      {/* Smart Lifesaver Bar (Scanner Trigger) */}
-      <div className="px-4 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
+      {/* Smart Lifesaver Bar (AI Scanner Hero Card) */}
+      <div className="px-4 mb-4 animate-fade-in" style={{ animationDelay: '100ms' }}>
         <button
-          onClick={onOpenScanner}
-          className="w-full relative group bg-white dark:bg-gray-900 rounded-[1.25rem] p-3.5 flex items-center gap-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 transition-all active:scale-[0.98] overflow-hidden"
+          onClick={handleScannerClick}
+          className="w-full relative group bg-gradient-to-r from-brand-600 via-brand-500 to-rose-500 text-white rounded-[1.35rem] p-4 flex items-center justify-between shadow-lg shadow-brand-600/20 active:scale-[0.98] transition-all overflow-hidden text-right"
         >
-          {/* Animated Background Gradient (Subtle) */}
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          {/* Subtle decorative glow overlay */}
+          <div className="absolute -right-8 -top-8 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          
+          <div className="flex items-center gap-3.5 relative z-10 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20 shadow-inner group-hover:scale-105 transition-transform duration-300">
+              <ScanLine className="w-6 h-6 text-white" />
+            </div>
 
-          {/* Icon Area */}
-          <div className="w-12 h-12 rounded-[1rem] bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-300">
-            <ScanLine className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+            <div className="min-w-0">
+              <div className="mb-0.5">
+                <h3 className="font-black text-white text-base leading-tight">فاحص الجلوتين الذكي</h3>
+              </div>
+              <p className="text-[11.5px] text-white/90 font-medium leading-snug truncate">
+                صوّر أي منتج وتأكد هل هو آمن وخالي من الجلوتين
+              </p>
+            </div>
           </div>
 
-          {/* Text Area */}
-          <div className="flex-1 text-right">
-            <h3 className="font-black text-gray-900 dark:text-white text-[15px] mb-0.5">افحص أي منتج الآن</h3>
-            <p className="text-[12px] text-gray-500 dark:text-gray-400 font-bold">بالكاميرا أو البحث النصي.. وتأكد هل هو خالي من الجلوتين!</p>
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 mr-1.5 group-hover:-translate-x-1 transition-transform relative z-10">
+            <ArrowLeft className="w-4 h-4 text-white" />
           </div>
         </button>
       </div>
@@ -72,28 +84,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) =
         {/* متجر جوده */}
         <button
           onClick={() => navigate('/products')}
-          className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-100 dark:border-gray-800 text-right px-2.5 py-3 sm:p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2 sm:gap-3 w-full"
+          className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-150/70 dark:border-gray-800 text-right px-3 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2.5 w-full"
         >
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[0.8rem] bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-300">
-            <Store className="w-4 h-4 sm:w-5 sm:h-5 text-brand-600 dark:text-brand-400" />
+          <div className="w-10 h-10 rounded-[0.9rem] bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-300">
+            <Store className="w-5 h-5 text-brand-600 dark:text-brand-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-black text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">تسوق المنتجات</h3>
-            <p className="text-[11px] sm:text-[12px] text-gray-500 dark:text-gray-400 font-medium leading-snug">اطلب الان</p>
+            <h3 className="font-black text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">متجرك الصحي</h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium leading-snug">مخبوزات وبدائل آمنة</p>
           </div>
         </button>
 
         {/* وصفات جوده */}
         <button
           onClick={() => navigate('/recipes')}
-          className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-100 dark:border-gray-800 text-right px-2.5 py-3 sm:p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2 sm:gap-3 w-full"
+          className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-150/70 dark:border-gray-800 text-right px-3 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2.5 w-full"
         >
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[0.8rem] bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:-rotate-3 transition-transform duration-300">
-            <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 dark:text-orange-400" />
+          <div className="w-10 h-10 rounded-[0.9rem] bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:-rotate-3 transition-transform duration-300">
+            <ChefHat className="w-5 h-5 text-orange-500 dark:text-orange-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-black text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">قائمة الوصفات</h3>
-            <p className="text-[11px] sm:text-[12px] text-gray-500 dark:text-gray-400 font-medium leading-snug">جرّب وصفة اليوم</p>
+            <h3 className="font-black text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">مطبخ جودة</h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium leading-snug">وصفات خالية من الجلوتين</p>
           </div>
         </button>
       </div>

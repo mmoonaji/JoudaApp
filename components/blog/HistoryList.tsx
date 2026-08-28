@@ -25,25 +25,30 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect }) =
   };
 
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('ar-SA', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const d = new Date(timestamp);
+      return d.toLocaleDateString('ar-EG', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return '';
+    }
   };
 
   // Determine which items to show
   const visibleHistory = isExpanded ? history : history.slice(0, 2);
 
   return (
-    <div className="w-full mt-6 animate-fade-in">
-      <div className="flex items-center justify-between mb-4 px-1">
+    <div className="w-full mt-5 animate-fade-in">
+      <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
-          <div className="bg-indigo-100 dark:bg-indigo-900/30 p-1.5 rounded-lg">
-             <History className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <div className="bg-brand-50 dark:bg-brand-950/40 p-1.5 rounded-xl text-brand-600 dark:text-brand-400">
+             <History className="w-4 h-4" />
           </div>
-          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+          <h3 className="text-base font-black text-gray-900 dark:text-white">
             {isExpanded ? 'سجل الفحص الكامل' : 'آخر الفحوصات'}
           </h3>
         </div>
@@ -60,7 +65,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect }) =
           <button
             key={item.timestamp}
             onClick={() => onSelect(item)}
-            className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-3 flex items-center gap-3 shadow-sm hover:shadow-md transition-all active:scale-[0.99] duration-300 group hover:border-gray-200 dark:hover:border-gray-600"
+            className="w-full bg-white dark:bg-gray-850 border border-gray-150/80 dark:border-gray-750 rounded-2xl p-3 flex items-center gap-3 shadow-xs hover:shadow-sm transition-all active:scale-[0.99] group hover:border-brand-200 dark:hover:border-brand-900/50"
           >
             {/* Thumbnail */}
             <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-100 dark:border-gray-700 relative">

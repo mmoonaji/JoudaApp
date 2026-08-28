@@ -121,34 +121,38 @@ export const Scanner: React.FC<ScannerProps> = ({ onImageSelected, onTextSearch,
   };
 
   return (
-    <div className="w-full bg-warm-white dark:bg-gray-800 rounded-[2rem] shadow-lg border border-gray-100 dark:border-gray-700 my-4 relative overflow-hidden transition-all duration-300">
+    <div className="w-full bg-white dark:bg-gray-850 rounded-[1.75rem] shadow-sm border border-gray-150/70 dark:border-gray-800 my-2 relative overflow-hidden transition-all duration-300">
       
-      {/* Tabs - Always visible but disabled during analysis to prevent layout shift (CLS) */}
-      <div className={`flex border-b border-gray-100 dark:border-gray-700 transition-opacity duration-300 ${isAnalyzing ? 'pointer-events-none opacity-50' : ''}`}>
-        <button
-          onClick={() => setMode('camera')}
-          disabled={isAnalyzing}
-          className={`flex-1 py-3.5 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
-            mode === 'camera' 
-              ? 'text-brand-600 bg-brand-50/50 dark:bg-brand-900/20 border-b-2 border-brand-600' 
-              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-          }`}
-        >
-          <CameraIcon className="w-4 h-4" />
-          <span>فحص بصورة</span>
-        </button>
-        <button
-          onClick={() => setMode('text')}
-          disabled={isAnalyzing}
-          className={`flex-1 py-3.5 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
-            mode === 'text' 
-              ? 'text-brand-600 bg-brand-50/50 dark:bg-brand-900/20 border-b-2 border-brand-600' 
-              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-          }`}
-        >
-          <Type className="w-4 h-4" />
-          <span>اكتب الاسم</span>
-        </button>
+      {/* iOS Segmented Control Capsule */}
+      <div className="p-3 pb-0">
+        <div className={`p-1 bg-gray-100/90 dark:bg-gray-800 rounded-2xl flex items-center gap-1 border border-gray-200/50 dark:border-gray-750 transition-opacity duration-300 ${isAnalyzing ? 'pointer-events-none opacity-50' : ''}`}>
+          <button
+            type="button"
+            onClick={() => setMode('camera')}
+            disabled={isAnalyzing}
+            className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all duration-300 select-none ${
+              mode === 'camera'
+                ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <CameraIcon className="w-4 h-4" />
+            <span>فحص بصورة</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('text')}
+            disabled={isAnalyzing}
+            className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all duration-300 select-none ${
+              mode === 'text'
+                ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <Type className="w-4 h-4" />
+            <span>اكتب الاسم</span>
+          </button>
+        </div>
       </div>
 
       <div className="p-4 md:p-6 flex flex-col items-center justify-center">
@@ -188,9 +192,9 @@ export const Scanner: React.FC<ScannerProps> = ({ onImageSelected, onTextSearch,
               <CameraIcon className="w-7 h-7 text-white" />
             </div>
             
-            <h2 className="text-base font-black text-gray-900 dark:text-white mb-1.5">صوّر المكونات أو الباركود</h2>
+            <h2 className="text-base font-black text-gray-900 dark:text-white mb-1.5">صوّر قائمة المكونات والتحذيرات بوضوح</h2>
             <p className="text-gray-400 dark:text-gray-500 text-xs px-4 leading-relaxed max-w-xs">
-              اضغط هنا لفتح الكاميرا أو اختيار صورة من جهازك
+              اضغط لفتح الكاميرا — إذا كان هناك شعار خالي من الجلوتين، حاول إظهاره أيضاً
             </p>
           </div>
         ) : (

@@ -70,8 +70,16 @@ const parseResponse = (data: any): AnalysisResult => {
   }
 
   return {
-    ...data,
     verdict: data.verdict as VerdictType,
-    timestamp: Date.now(),
+    verdictTitle: data.verdictTitle || (data.verdict === 'SAFE' ? 'خالي من الجلوتين ✓' : data.verdict === 'UNSAFE' ? 'يحتوي على جلوتين ⛔' : 'غير مؤكد ⚠️'),
+    reasonCode: data.reasonCode,
+    analysis: data.analysis || '',
+    guidance: data.guidance || '',
+    alternatives: data.alternatives,
+    matchedStoreItem: data.matchedStoreItem || (data.alternative ? data.alternative.name : undefined),
+    alternative: data.alternative || null,
+    evidence: data.evidence,
+    timestamp: data.timestamp || Date.now(),
   };
 };
+
