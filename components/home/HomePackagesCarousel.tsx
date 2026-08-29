@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product, fetchFeaturedPackagesFromSupabase } from '../../services/supabaseService';
 import { getCachedProducts, getCacheAge } from '../../services/db';
-import { ProductDetailsModal } from '../modals/ProductDetailsModal';
 import { calculatePackageSavings } from '../products/utils';
 import { AppImage } from '../ui/AppImage';
 
 export const HomePackagesCarousel: React.FC = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
   
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -140,7 +140,7 @@ export const HomePackagesCarousel: React.FC = () => {
             return (
               <div 
                 key={pkg.id}
-                onClick={() => setSelectedProductDetails(pkg)}
+                onClick={() => navigate(`/products?id=${encodeURIComponent(pkg.barcode || pkg.id)}`)}
                 className="min-w-[280px] max-w-[280px] h-[130px] bg-white dark:bg-gray-900 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] dark:shadow-none p-3.5 cursor-pointer active:scale-[0.98] transition-all duration-300 snap-center shrink-0 flex items-center gap-4 hover:shadow-md"
               >
                 {/* Content Side (Right) */}
@@ -217,13 +217,6 @@ export const HomePackagesCarousel: React.FC = () => {
           </div>
         )}
       </div>
-
-      {selectedProductDetails && (
-        <ProductDetailsModal
-           product={selectedProductDetails}
-           onClose={() => setSelectedProductDetails(null)}
-        />
-      )}
     </>
   );
 };

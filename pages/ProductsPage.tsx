@@ -28,6 +28,17 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
   const { addToCart, decreaseQuantityByName, getItemQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
 
+  const handleOpenProductDetails = (product: Product | null) => {
+    if (!product) {
+      handleCloseProductDetails();
+      return;
+    }
+    setSelectedProductDetails(product);
+    const next = new URLSearchParams(searchParams);
+    next.set('id', product.barcode || product.id);
+    setSearchParams(next);
+  };
+
   const handleCloseProductDetails = () => {
     setSelectedProductDetails(null);
     if (searchParams.has('id') || searchParams.has('product')) {
@@ -137,7 +148,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
     loadAllData(true);
   }, []);
 
-  // Auto-open product details if URL contains deep link ?id=... or ?product=...
+  // Auto-open / sync product details when URL ?id=... or ?product=... changes
   useEffect(() => {
     if (requestedProductId && (storeProducts.length > 0 || bakeryProducts.length > 0)) {
       const allProducts = [...storeProducts, ...bakeryProducts];
@@ -150,6 +161,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
           setViewMode('bakery');
         }
       }
+    } else if (!requestedProductId && selectedProductDetails) {
+      setSelectedProductDetails(null);
     }
   }, [requestedProductId, storeProducts, bakeryProducts]);
 
@@ -396,7 +409,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
                   getItemQuantity={getItemQuantity}
                   handleAddToCart={handleAddToCart}
                   decreaseQuantityByName={decreaseQuantityByName}
-                  setSelectedProductDetails={setSelectedProductDetails}
+                  setSelectedProductDetails={handleOpenProductDetails}
                   setRequestProduct={setRequestProduct}
                   justAdded={justAdded}
                   savings={savings}
