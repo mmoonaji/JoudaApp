@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Search, ChevronDown, Sparkles } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useFavorites } from '../contexts/FavoritesContext';
@@ -23,8 +23,20 @@ interface ProductsPageProps {
 
 export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 'store' }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedProductId = searchParams.get('id') || searchParams.get('product');
   const { addToCart, decreaseQuantityByName, getItemQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  const handleCloseProductDetails = () => {
+    setSelectedProductDetails(null);
+    if (searchParams.has('id') || searchParams.has('product')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('id');
+      next.delete('product');
+      setSearchParams(next, { replace: true });
+    }
+  };
   
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
   const [bakeryProducts, setBakeryProducts] = useState<Product[]>([]);
@@ -124,6 +136,22 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
   useEffect(() => {
     loadAllData(true);
   }, []);
+
+  // Auto-open product details if URL contains deep link ?id=... or ?product=...
+  useEffect(() => {
+    if (requestedProductId && (storeProducts.length > 0 || bakeryProducts.length > 0)) {
+      const allProducts = [...storeProducts, ...bakeryProducts];
+      const target = allProducts.find(
+        p => p.id === requestedProductId || p.barcode === requestedProductId
+      );
+      if (target) {
+        setSelectedProductDetails(target);
+        if (target.source === 'bakery' || target.category === 'مخبوزات' || target.category === 'سناكات ومعجنات' || target.app_category === 'مخبوزات') {
+          setViewMode('bakery');
+        }
+      }
+    }
+  }, [requestedProductId, storeProducts, bakeryProducts]);
 
   const currentProducts = viewMode === 'store' ? storeProducts : bakeryProducts;
   const categories = ['الكل', ...Array.from(new Set(currentProducts.map(p => p.category).filter(Boolean)))];
@@ -444,10 +472,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ initialViewMode = 's
              product={selectedProductDetails}
              relatedRecipes={relatedRecipes}
              onOpenRecipe={(recipeId) => {
-               setSelectedProductDetails(null);
+               handleCloseProductDetails();
                navigate(`/recipes?id=${recipeId}`);
              }}
-             onClose={() => setSelectedProductDetails(null)}
+             onClose={handleCloseProductDetails}
           />
         );
       })()}

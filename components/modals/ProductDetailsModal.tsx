@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ShoppingBag, Heart, ChefHat, Clock, Share2, Check, Sparkles, BadgeCheck, Gift } from 'lucide-react';
+import { X, ShoppingBag, Heart, ChefHat, Clock, Share2, Check, Sparkles, BadgeCheck, Gift, Maximize2 } from 'lucide-react';
 import { Product, Recipe } from '../../services/supabaseService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -9,8 +9,10 @@ import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
 import { useScrollLock, useBackButton } from '../../hooks/index';
 import { ProductRequestModal } from './ProductRequestModal';
+import { ImageViewerModal } from './ImageViewerModal';
 import { getCachedProducts } from '../../services/db';
 import { canAddQuantity, getLowStockLabel } from '../../utils/stockUtils';
+import { buildProductShareUrl, formatProductShareText, executeProductShare } from '../../utils/shareUtils';
 import { AppImage } from '../ui/AppImage';
 
 interface ProductDetailsModalProps {
@@ -29,6 +31,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const { addToCart, getItemQuantity, decreaseQuantityByName, setIsCartOpen } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
   // Handle hardware back button
   useBackButton(true, onClose);
@@ -106,17 +109,21 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const liked = isFavorite(product.id);
   const canIncrease = canAddQuantity(product, quantity);
   const lowStockLabel = getLowStockLabel(product);
+  const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `شاهد هذا المنتج من متجر جوده: ${product.name}\n${product.description || ''}`,
-          url: window.location.href,
-        });
-      } catch (e) {}
-    }
+    const shareUrl = buildProductShareUrl(product.id);
+    const shareText = formatProductShareText(product.name, shareUrl);
+
+    await executeProductShare({
+      title: product.name,
+      text: shareText,
+      url: shareUrl,
+      onCopied: () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      },
+    });
   };
 
   return createPortal(
@@ -131,37 +138,86 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         >
           {/* Header Image Section */}
           <div className="relative w-full h-64 sm:h-72 bg-white shrink-0 p-6 flex items-center justify-center">
-            <AppImage
-              src={product.image}
-              alt={product.name}
-              priority
-              containerClassName="absolute inset-0 p-6"
-              className="w-full h-full object-contain relative z-10 transition-opacity duration-500"
-              fallback={
-                <div className="w-full h-full flex items-center justify-center text-gray-300">
-                  <ShoppingBag className="w-20 h-20" />
-                </div>
-              }
-            />
-            
-            {/* Top Actions Overlay */}
-            <div className="absolute top-0 left-0 right-0 p-4 pt-6 flex justify-between items-start z-10">
-               <button 
-                 type="button"
-                 onClick={onClose}
-                 className="w-10 h-10 bg-gray-100/80 backdrop-blur-md rounded-full flex items-center justify-center text-gray-700 hover:bg-gray-200 transition-colors shadow-sm"
-               >
-                 <X className="w-5 h-5" />
-               </button>
+            {/* Clickable Image Area */}
+            <div 
+              onClick={() => {
+                if (product.image) setIsImageViewerOpen(true);
+              }}
+              onPointerEnter={() => {
+                if (product.image && typeof Image !== 'undefined') {
+                  const img = new Image();
+                  img.src = product.image;
+                  img.decode?.().catch(() => {});
+                }
+              }}
+              role={product.image ? "button" : undefined}
+              tabIndex={product.image ? 0 : undefined}
+              aria-label={product.image ? "تكبير صورة المنتج" : undefined}
+              onKeyDown={(e) => {
+                if (product.image && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  setIsImageViewerOpen(true);
+                }
+              }}
+              className={`absolute inset-0 p-6 flex items-center justify-center select-none group transition-colors ${
+                product.image ? 'cursor-zoom-in' : ''
+              }`}
+            >
+              <AppImage
+                src={product.image}
+                alt={product.name}
+                priority
+                containerClassName="w-full h-full"
+                className="w-full h-full object-contain relative z-10 transition-transform duration-500 group-hover:scale-105"
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center text-gray-300">
+                    <ShoppingBag className="w-20 h-20" />
+                  </div>
+                }
+              />
 
-               <div className="flex gap-2">
+              {/* Visual Zoom Affordance Badge */}
+              {product.image && (
+                <div className="absolute bottom-3 left-3 z-10 opacity-80 group-hover:opacity-100 transition-opacity bg-black/45 hover:bg-black/65 text-white backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-sm border border-white/20">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>تكبير الصورة</span>
+                </div>
+              )}
+            </div>
+
+            {/* Top Actions Overlay */}
+            <div className="absolute top-0 left-0 right-0 p-4 pt-6 flex justify-between items-start z-20 pointer-events-none">
+               <div className="pointer-events-auto">
                  <button 
-                    type="button"
-                    onClick={handleShare}
-                    className="w-10 h-10 bg-gray-100/80 backdrop-blur-md rounded-full flex items-center justify-center text-gray-700 hover:bg-gray-200 transition-colors shadow-sm"
+                   type="button"
+                   onClick={onClose}
+                   className="w-10 h-10 bg-gray-100/80 backdrop-blur-md rounded-full flex items-center justify-center text-gray-700 hover:bg-gray-200 transition-colors shadow-sm"
                  >
-                   <Share2 className="w-5 h-5" />
+                   <X className="w-5 h-5" />
                  </button>
+               </div>
+
+               <div className="flex gap-2 pointer-events-auto">
+                  <div className="relative">
+                    <button 
+                       type="button"
+                       onClick={handleShare}
+                       className={`w-10 h-10 backdrop-blur-md rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${
+                         copied 
+                           ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
+                           : 'bg-gray-100/80 text-gray-700 hover:bg-gray-200 dark:bg-gray-800/80 dark:text-gray-200'
+                       }`}
+                       aria-label={copied ? "تم نسخ الرابط" : "مشاركة المنتج"}
+                       title={copied ? "تم نسخ الرابط بنجاح" : "مشاركة المنتج"}
+                    >
+                      {copied ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 animate-scale-in" /> : <Share2 className="w-5 h-5" />}
+                    </button>
+                    {copied && (
+                      <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap animate-fade-in pointer-events-none z-50">
+                        تم نسخ الرابط!
+                      </span>
+                    )}
+                  </div>
                  <button 
                     type="button"
                     onClick={() => toggleFavorite(product.id)}
@@ -452,6 +508,17 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         <ProductRequestModal 
           initialProductName={product.name} 
           onClose={() => setRequestModalOpen(false)} 
+        />
+      )}
+
+      {isImageViewerOpen && (
+        <ImageViewerModal
+          isOpen={isImageViewerOpen}
+          onClose={() => setIsImageViewerOpen(false)}
+          src={product.image}
+          alt={product.name}
+          title={product.name}
+          subtitle={product.category || product.app_category}
         />
       )}
     </>,
