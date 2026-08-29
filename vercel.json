@@ -1,4 +1,25 @@
 {
+  "rewrites": [
+    {
+      "source": "/products",
+      "has": [
+        {
+          "type": "query",
+          "key": "id"
+        },
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|WhatsApp|whatsapp|Twitterbot|twitterbot|TelegramBot|telegrambot|LinkedInBot|linkedinbot|Slackbot|slackbot|Discordbot|discordbot|Applebot|applebot|SkypeUriPreview).*"
+        }
+      ],
+      "destination": "/api/og-product"
+    },
+    {
+      "source": "/p/:id",
+      "destination": "/api/og-product?id=:id"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -12,7 +12,7 @@ import { ProductRequestModal } from './ProductRequestModal';
 import { ImageViewerModal } from './ImageViewerModal';
 import { getCachedProducts } from '../../services/db';
 import { canAddQuantity, getLowStockLabel } from '../../utils/stockUtils';
-import { buildProductShareUrl, formatProductShareText, executeProductShare } from '../../utils/shareUtils';
+import { buildProductShareUrl, formatProductShareIntro, formatProductShareText, executeProductShare } from '../../utils/shareUtils';
 import { AppImage } from '../ui/AppImage';
 
 interface ProductDetailsModalProps {
@@ -113,11 +113,11 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   const handleShare = async () => {
     const shareUrl = buildProductShareUrl(product.id);
-    const shareText = formatProductShareText(product.name, shareUrl);
+    const shareIntro = formatProductShareIntro(product.name);
 
     await executeProductShare({
       title: product.name,
-      text: shareText,
+      text: shareIntro,
       url: shareUrl,
       onCopied: () => {
         setCopied(true);

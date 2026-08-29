@@ -34,10 +34,17 @@ export function cleanShareText(rawText?: string): string {
 }
 
 /**
+ * Formats introductory share text without the URL (to prevent duplication on platforms that append url)
+ */
+export function formatProductShareIntro(productName: string): string {
+  return `شاهد "${productName}" من متجر جودة للأغذية الخالية من الجلوتين:`;
+}
+
+/**
  * Formats a clean, professional product share message for WhatsApp / social apps
  */
 export function formatProductShareText(productName: string, shareUrl: string): string {
-  return `شاهد "${productName}" من متجر جودة للأغذية الخالية من الجلوتين:\n${shareUrl}`;
+  return `${formatProductShareIntro(productName)}\n${shareUrl}`;
 }
 
 /**
@@ -49,12 +56,18 @@ export function formatProductShareText(productName: string, shareUrl: string): s
 export async function executeProductShare(payload: SharePayload): Promise<ShareResult> {
   const { title, text, url, onCopied } = payload;
 
+  // Crucial: Many apps (WhatsApp, Twitter, Gmail) automatically concatenate `text + ' ' + url`.
+  // If `text` already contains `url`, the recipient sees the link twice!
+  // We strip `url` from `text` before calling navigator.share to guarantee it appears exactly once.
+  const textWithoutUrl = text.replace(url, '').trim();
+  const fullText = text.includes(url) ? text : `${text}\n${url}`.trim();
+
   // 1. Try Native Web Share
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
       await navigator.share({
         title,
-        text,
+        text: textWithoutUrl,
         url,
       });
       return 'shared';
@@ -70,7 +83,7 @@ export async function executeProductShare(payload: SharePayload): Promise<ShareR
   // 2. Try Clipboard API
   if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(fullText);
       if (onCopied) onCopied();
       return 'copied';
     } catch (err) {
@@ -81,7 +94,7 @@ export async function executeProductShare(payload: SharePayload): Promise<ShareR
   // 3. WhatsApp Direct Intent Fallback
   if (typeof window !== 'undefined') {
     try {
-      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(`${text}`)}`;
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullText)}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
       return 'opened_whatsapp';
     } catch (err) {

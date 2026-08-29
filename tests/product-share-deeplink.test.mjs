@@ -46,11 +46,18 @@ test('ProductDetailsModal integrates shareUtils and transient feedback state', (
   const code = source('components/modals/ProductDetailsModal.tsx');
 
   assert.match(code, /buildProductShareUrl/);
-  assert.match(code, /formatProductShareText/);
+  assert.match(code, /formatProductShareIntro/);
   assert.match(code, /executeProductShare/);
   assert.match(code, /copied/);
   assert.match(code, /setCopied/);
   assert.match(code, /تم نسخ الرابط/);
+});
+
+test('formatProductShareIntro does not contain URL to prevent double links', async () => {
+  const { formatProductShareIntro } = await import('../utils/shareUtils.ts');
+  const intro = formatProductShareIntro('كوكيز سادة');
+  assert.match(intro, /كوكيز سادة/);
+  assert.doesNotMatch(intro, /http/);
 });
 
 test('ProductsPage resolves product deep links and synchronizes URL on close', () => {
