@@ -48,6 +48,29 @@ export function formatProductShareText(productName: string, shareUrl: string): s
 }
 
 /**
+ * Builds the canonical article deep link URL
+ */
+export function buildArticleShareUrl(articleId: string, origin?: string): string {
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : 'https://joudafood.com');
+  const cleanId = encodeURIComponent(articleId.trim());
+  return `${base}/articles/${cleanId}`;
+}
+
+/**
+ * Formats introductory share text for articles without the URL
+ */
+export function formatArticleShareIntro(articleTitle: string): string {
+  return `اقرأ مقال "${articleTitle}" من مدونة جودة:`;
+}
+
+/**
+ * Formats a clean article share message for WhatsApp / social apps
+ */
+export function formatArticleShareText(articleTitle: string, shareUrl: string): string {
+  return `${formatArticleShareIntro(articleTitle)}\n${shareUrl}`;
+}
+
+/**
  * Robust 3-tier sharing pipeline:
  * 1. Native Web Share API (mobile devices)
  * 2. Clipboard API fallback (desktop / unsupported browsers)
@@ -104,3 +127,6 @@ export async function executeProductShare(payload: SharePayload): Promise<ShareR
 
   return 'dismissed';
 }
+
+export const executeArticleShare = executeProductShare;
+export const executeShare = executeProductShare;

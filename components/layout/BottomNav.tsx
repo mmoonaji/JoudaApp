@@ -4,6 +4,23 @@ import { Home, LayoutGrid, Info, User, HeartPulse } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
   const location = useLocation();
+
+  const triggerHaptic = () => {
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(10);
+      }
+    } catch {
+      // Ignore if vibration is unsupported or restricted
+    }
+  };
+
+  const handleTabClick = (isActive: boolean) => {
+    triggerHaptic();
+    if (isActive && window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
   
   const tabs = [
     { id: 'home', path: '/', label: 'الرئيسية', icon: <Home className="w-[22px] h-[22px]" /> },
@@ -24,11 +41,13 @@ export const BottomNav: React.FC = () => {
                 <div key={tab.id} className="relative flex flex-col items-center justify-center -translate-y-4 z-50">
                   <NavLink
                     to={tab.path}
-                    onClick={() => { if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-700 dark:from-brand-600 dark:to-brand-800 shadow-[0_8px_20px_rgba(211,47,47,0.3)] text-white hover:scale-105 active:scale-95 transition-all relative"
+                    onClick={() => handleTabClick(isActive)}
+                    className="w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-700 dark:from-brand-600 dark:to-brand-800 shadow-[0_8px_20px_rgba(211,47,47,0.3)] text-white hover:scale-105 active:scale-90 transition-transform duration-150 relative select-none"
                     aria-label="صحتك"
                   >
-                    {tab.icon}
+                    <div className={`transition-transform duration-300 ease-out ${isActive ? '-translate-y-0.5 scale-105' : 'scale-100'}`}>
+                      {tab.icon}
+                    </div>
                   </NavLink>
                   <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mt-1">
                     {tab.label}
@@ -42,18 +61,18 @@ export const BottomNav: React.FC = () => {
               <NavLink
                 key={tab.id}
                 to={tab.path}
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                onClick={() => handleTabClick(isActive)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center w-16 py-2 gap-1.5 transition-all duration-300 ${
+                className={`flex flex-col items-center justify-center w-16 min-h-[48px] min-w-[48px] py-1.5 gap-1 select-none active:scale-90 transition-all duration-150 ${
                   isActive 
                     ? 'text-brand-600 dark:text-brand-400 font-extrabold' 
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
-                <div className={`transition-all ${isActive ? 'translate-y-[-2px]' : ''}`}>
+                <div className={`transition-transform duration-300 ease-out ${isActive ? '-translate-y-0.5 scale-110' : 'scale-100'}`}>
                   {tab.icon}
                 </div>
-                <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-85'}`}>
+                <span className={`text-[10px] font-bold transition-opacity duration-200 ${isActive ? 'opacity-100' : 'opacity-85'}`}>
                   {tab.label}
                 </span>
               </NavLink>

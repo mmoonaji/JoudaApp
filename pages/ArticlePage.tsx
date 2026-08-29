@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { ChevronRight, Calendar, User, Share2, BookOpen } from 'lucide-react';
+import { ChevronRight, Calendar, User, Share2, BookOpen, Check } from 'lucide-react';
 import { fetchArticleFromSupabase, Article } from '../services/supabaseService';
+import { buildArticleShareUrl, formatArticleShareIntro, executeShare } from '../utils/shareUtils';
 import { AppImage } from '../components/ui/AppImage';
 
 /* ── tiny helper: set or restore a single <meta> tag ── */
@@ -29,6 +30,7 @@ export const ArticlePage: React.FC = () => {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
   const [theme, setTheme] = useState<'default' | 'sepia'>('default');
+  const [copied, setCopied] = useState(false);
 
   /* ── fetch article ── */
   useEffect(() => {
@@ -80,20 +82,18 @@ export const ArticlePage: React.FC = () => {
   /* ── share ── */
   const handleShare = async () => {
     if (!article) return;
-    const shareUrl = `${window.location.origin}/articles/${article.id}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: article.title,
-          text: `شوف هذا المقال المفيد من مدونة جوده: ${article.title}`,
-          url: shareUrl,
-        });
-      } catch (_) { /* user cancelled */ }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-      } catch (_) { /* ignore */ }
-    }
+    const shareUrl = buildArticleShareUrl(article.id);
+    const shareIntro = formatArticleShareIntro(article.title);
+
+    await executeShare({
+      title: article.title,
+      text: shareIntro,
+      url: shareUrl,
+      onCopied: () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      },
+    });
   };
 
   /* ── loading skeleton ── */
@@ -202,13 +202,25 @@ export const ArticlePage: React.FC = () => {
             <ChevronRight className="w-5 h-5" />
           </button>
           
-          <button
-            onClick={handleShare}
-            className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors active:scale-95 shadow-sm border border-gray-100 dark:border-gray-800"
-            aria-label="مشاركة المقال"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={handleShare}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-sm border ${
+                copied
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400'
+                  : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+              aria-label={copied ? "تم نسخ الرابط" : "مشاركة المقال"}
+              title={copied ? "تم نسخ الرابط بنجاح" : "مشاركة المقال"}
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-scale-in" /> : <Share2 className="w-4 h-4" />}
+            </button>
+            {copied && (
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap animate-fade-in pointer-events-none z-50">
+                تم نسخ الرابط!
+              </span>
+            )}
+          </div>
         </div>
 
         <div

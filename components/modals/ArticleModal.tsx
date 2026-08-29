@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { X, Calendar, User, Share2 } from 'lucide-react';
+import { X, Calendar, User, Share2, Check } from 'lucide-react';
 import { Article } from '../../services/supabaseService';
 import { useScrollLock, useBackButton } from '../../hooks/index';
+import { buildArticleShareUrl, formatArticleShareIntro, executeShare } from '../../utils/shareUtils';
 import { AppImage } from '../ui/AppImage';
 
 interface ArticleModalProps {
@@ -23,6 +24,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose }) 
   const [scrollProgress, setScrollProgress] = useState(0);
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
   const [theme, setTheme] = useState<'default' | 'sepia'>('default');
+  const [copied, setCopied] = useState(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -38,15 +40,18 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose }) 
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: article.title,
-          text: `شوف هذا المقال المفيد من مدونة جوده: ${article.title}`,
-          url: `${window.location.origin}/articles/${article.id}`,
-        });
-      } catch (e) {}
-    }
+    const shareUrl = buildArticleShareUrl(article.id);
+    const shareIntro = formatArticleShareIntro(article.title);
+
+    await executeShare({
+      title: article.title,
+      text: shareIntro,
+      url: shareUrl,
+      onCopied: () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      },
+    });
   };
 
   // Pass the raw content directly so Markdown plugins can parse tables and lists correctly.
@@ -65,13 +70,25 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({ article, onClose }) 
         </div>
 
         {/* Floating Share Button (Always Visible) */}
-        <button 
-          onClick={handleShare}
-          className="absolute top-8 left-8 z-[60] bg-gray-900/40 hover:bg-gray-900/60 backdrop-blur-md p-2.5 rounded-full text-white shadow-lg transition-all duration-300 active:scale-90"
-          aria-label="مشاركة المقال"
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
+        <div className="absolute top-8 left-8 z-[60]">
+          <button 
+            onClick={handleShare}
+            className={`backdrop-blur-md p-2.5 rounded-full shadow-lg transition-all duration-300 active:scale-90 ${
+              copied
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-900/40 hover:bg-gray-900/60 text-white'
+            }`}
+            aria-label={copied ? "تم نسخ الرابط" : "مشاركة المقال"}
+            title={copied ? "تم نسخ الرابط بنجاح" : "مشاركة المقال"}
+          >
+            {copied ? <Check className="w-5 h-5 animate-scale-in" /> : <Share2 className="w-5 h-5" />}
+          </button>
+          {copied && (
+            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap animate-fade-in pointer-events-none z-50">
+              تم نسخ الرابط!
+            </span>
+          )}
+        </div>
 
         {/* Floating Close Button (Always Visible) */}
         <button 

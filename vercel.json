@@ -18,6 +18,21 @@
     {
       "source": "/p/:id",
       "destination": "/api/og-product?id=:id"
+    },
+    {
+      "source": "/articles/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|WhatsApp|whatsapp|Twitterbot|twitterbot|TelegramBot|telegrambot|LinkedInBot|linkedinbot|Slackbot|slackbot|Discordbot|discordbot|Applebot|applebot|SkypeUriPreview).*"
+        }
+      ],
+      "destination": "/api/og-article?id=:id"
+    },
+    {
+      "source": "/a/:id",
+      "destination": "/api/og-article?id=:id"
     }
   ],
   "headers": [
