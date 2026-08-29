@@ -17,7 +17,7 @@ function escapeHtml(str?: string | null): string {
     .replace(/>/g, '&gt;');
 }
 
-const DEFAULT_IMAGE = 'https://i.postimg.cc/qvKhrVZS/pwa-512-511-png.png';
+const DEFAULT_IMAGE = 'https://www.joudafood.com/pwa-512x512.png';
 const DEFAULT_TITLE = 'Jouda World - عالم جوده';
 const DEFAULT_DESC = 'وجهتك الأولى للمنتجات العضوية والخالية من الجلوتين. تسوق، تصفح الوصفات، واطلب مخبوزاتك الطازجة يومياً.';
 
@@ -31,13 +31,16 @@ export default async function handler(request: Request) {
   let productName = DEFAULT_TITLE;
   let productDescription = DEFAULT_DESC;
   let productImage = DEFAULT_IMAGE;
+  let isFound = false;
+  let apiStatus = 0;
 
   if (id) {
     try {
       const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://unsqyovqzsgmxacrqunh.supabase.co';
-      const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.API_KEY || '';
+      const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON || process.env.API_KEY || '';
 
-      const queryUrl = `${supabaseUrl}/rest/v1/products?or=(id.eq.${encodeURIComponent(id)},barcode.eq.${encodeURIComponent(id)})&select=id,barcode,name,price,image,image_url,description,category&limit=1`;
+      // The products table in Supabase uses barcode as primary key, image_url for images
+      const queryUrl = `${supabaseUrl}/rest/v1/products?barcode=eq.${encodeURIComponent(id)}&select=barcode,name,price,image_url,description,category&limit=1`;
       
       const headers: Record<string, string> = {
         'Accept': 'application/json',
@@ -48,10 +51,13 @@ export default async function handler(request: Request) {
       }
 
       const res = await fetch(queryUrl, { headers });
+      apiStatus = res.status;
+
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           const prod = data[0];
+          isFound = true;
           if (prod.name) {
             productName = `${prod.name} | متجر جودة`;
           }
@@ -65,7 +71,7 @@ export default async function handler(request: Request) {
 
           productDescription = [price, badge, cleanDesc].filter(Boolean).join(' • ');
 
-          const rawImg = prod.image_url || prod.image;
+          const rawImg = prod.image_url;
           if (rawImg) {
             if (rawImg.startsWith('http://') || rawImg.startsWith('https://')) {
               productImage = rawImg;
@@ -95,11 +101,14 @@ export default async function handler(request: Request) {
 
   <!-- Open Graph / WhatsApp / Facebook -->
   <meta property="og:site_name" content="Jouda - متجر جودة">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="product">
   <meta property="og:title" content="${safeTitle}">
   <meta property="og:description" content="${safeDesc}">
   <meta property="og:image" content="${safeImg}">
   <meta property="og:image:secure_url" content="${safeImg}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="600">
+  <meta property="og:image:height" content="600">
   <meta property="og:image:alt" content="${safeTitle}">
   <meta property="og:url" content="${safeUrl}">
 
@@ -132,6 +141,8 @@ export default async function handler(request: Request) {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'public, max-age=60, s-maxage=300',
+      'x-og-found': String(isFound),
+      'x-og-status': String(apiStatus),
     },
   });
 }
