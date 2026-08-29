@@ -281,10 +281,10 @@ export const PackageForm: React.FC<PackageFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] text-gray-400 font-bold mb-1.5">وصف البكج</label>
+              <label className="block text-[10px] text-gray-400 font-bold mb-1.5">وصف البكج (يدعم Markdown)</label>
               <textarea
                 rows={3}
-                placeholder="تفاصيل العرض والمميزات..."
+                placeholder="تفاصيل العرض والمميزات... (يدعم **عريض**، - قوائم، أسطر جديدة)"
                 value={pkgDesc}
                 onChange={e => setPkgDesc(e.target.value)}
                 className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none resize-none dark:text-white"

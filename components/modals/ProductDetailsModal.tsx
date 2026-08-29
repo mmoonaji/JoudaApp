@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ShoppingBag, Heart, ChefHat, Clock, Share2, Check, Sparkles, BadgeCheck, Gift } from 'lucide-react';
 import { Product, Recipe } from '../../services/supabaseService';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
 import { useScrollLock, useBackButton } from '../../hooks/index';
@@ -211,9 +214,46 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                          </span>
                       )}
                    </div>
-                   <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-medium">
-                      {product.description || "لا يوجد وصف إضافي لهذا المنتج، ولكنه مضمون الجوده من متجرنا."}
-                   </p>
+                    <div className="prose prose-sm max-w-none dark:prose-invert text-gray-600 dark:text-gray-400 font-medium leading-relaxed prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-sm prose-p:text-gray-600 dark:prose-p:text-gray-400 prose-p:leading-relaxed prose-li:text-sm prose-li:text-gray-600 dark:prose-li:text-gray-400 prose-strong:font-bold prose-strong:text-gray-900 dark:prose-strong:text-white prose-a:text-brand-600 dark:prose-a:text-brand-400 hover:prose-a:underline [&_p]:leading-relaxed [&_li]:leading-relaxed [&_ul]:list-disc [&_ul]:pr-5 [&_ul]:pl-0 [&_ol]:list-decimal [&_ol]:pr-5 [&_ol]:pl-0 [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-0.5 [&_table]:w-full [&_table]:text-right [&_thead_th]:!text-right [&_th]:!text-right [&_td]:!text-right">
+                       <ReactMarkdown 
+                          remarkPlugins={[remarkGfm, remarkBreaks]}
+                          components={{
+                             a: ({ node, ...props }) => (
+                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 font-bold underline hover:text-brand-700" />
+                             ),
+                             table: ({ node, ...props }) => (
+                                <div className="w-full overflow-x-auto my-3 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs bg-white dark:bg-gray-900/40">
+                                   <table {...props} className="w-full text-right border-collapse text-xs sm:text-sm m-0" dir="rtl" />
+                                </div>
+                             ),
+                             thead: ({ node, ...props }) => (
+                                <thead {...props} className="bg-gray-50/80 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700" />
+                             ),
+                             th: ({ node, style, ...props }: any) => {
+                                const isCentered = style?.textAlign === 'center';
+                                return (
+                                   <th
+                                      {...props}
+                                      style={{ ...style, textAlign: isCentered ? 'center' : 'right' }}
+                                      className="text-right font-bold py-3 px-3.5 text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 align-middle text-xs sm:text-sm"
+                                   />
+                                );
+                             },
+                             td: ({ node, style, ...props }: any) => {
+                                const isCentered = style?.textAlign === 'center';
+                                return (
+                                   <td
+                                      {...props}
+                                      style={{ ...style, textAlign: isCentered ? 'center' : 'right' }}
+                                      className="text-right py-3 px-3.5 text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800/60 align-top text-xs sm:text-sm leading-relaxed"
+                                   />
+                                );
+                             },
+                          }}
+                       >
+                          {product.description || "لا يوجد وصف إضافي لهذا المنتج، ولكنه مضمون الجوده من متجرنا."}
+                       </ReactMarkdown>
+                    </div>
                 </div>
 
                 {/* Package Bundle Items Section */}

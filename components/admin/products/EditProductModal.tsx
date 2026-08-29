@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Tag, Star, PackageSearch, SlidersHorizontal, CheckCircle2, Fingerprint, Banknote, LayoutGrid, Infinity } from 'lucide-react';
+import { X, Save, Tag, Star, PackageSearch, SlidersHorizontal, CheckCircle2, Fingerprint, Banknote, LayoutGrid, Infinity, Eye, Edit3 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { Product, AppCategory } from '../../../services/supabaseService';
 import { BADGE_OPTIONS } from './constants';
 
@@ -16,6 +19,7 @@ export interface EditProductModalProps {
 export const EditProductModal: React.FC<EditProductModalProps> = ({ product, categories, cashierCategories, isSaving, onClose, onSave }) => {
   const [draftTags, setDraftTags] = useState<string[]>(product.tags || []);
   const [draftDescription, setDraftDescription] = useState<string>(product.description || '');
+  const [descTab, setDescTab] = useState<'write' | 'preview'>('write');
   const [draftCategory, setDraftCategory] = useState<string>(product.app_category || '');
   const [draftCashierCategory, setDraftCashierCategory] = useState<string>(product.category || '');
   const [isHidden, setIsHidden] = useState<boolean>(product.is_hidden_in_app || false);
@@ -228,15 +232,91 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ product, cat
 
           {/* Section 4: Promo Description */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 shadow-sm">
-            <h3 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-2 mb-3">
-              <Star className="w-4 h-4 text-brand-500" /> الوصف الترويجي
-            </h3>
-            <textarea 
-              value={draftDescription}
-              onChange={(e) => setDraftDescription(e.target.value)}
-              placeholder="اكتب وصفاً مميزاً يظهر لعملاء التطبيق..."
-              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[90px] resize-none text-gray-900 dark:text-white transition-all"
-            />
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-2">
+                <Star className="w-4 h-4 text-brand-500" /> الوصف الترويجي
+                <span className="text-[10px] text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-full font-bold">يدعم Markdown</span>
+              </h3>
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setDescTab('write')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
+                    descTab === 'write'
+                      ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <Edit3 className="w-3 h-3" />
+                  تحرير
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDescTab('preview')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
+                    descTab === 'preview'
+                      ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <Eye className="w-3 h-3" />
+                  معاينة
+                </button>
+              </div>
+            </div>
+
+            {descTab === 'write' ? (
+              <textarea 
+                value={draftDescription}
+                onChange={(e) => setDraftDescription(e.target.value)}
+                placeholder="اكتب وصفاً مميزاً يظهر لعملاء التطبيق... (يدعم **عريض**، - قوائم، أسطر جديدة)"
+                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[100px] resize-none text-gray-900 dark:text-white transition-all leading-relaxed"
+              />
+            ) : (
+              <div className="w-full bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-3.5 min-h-[100px] text-sm text-right" dir="rtl">
+                {draftDescription.trim() ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert text-gray-600 dark:text-gray-400 font-medium leading-relaxed prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-sm prose-p:text-gray-600 dark:prose-p:text-gray-400 prose-p:leading-relaxed prose-li:text-sm prose-li:text-gray-600 dark:prose-li:text-gray-400 prose-strong:font-bold prose-strong:text-gray-900 dark:prose-strong:text-white prose-a:text-brand-600 dark:prose-a:text-brand-400 hover:prose-a:underline [&_p]:leading-relaxed [&_li]:leading-relaxed [&_ul]:list-disc [&_ul]:pr-5 [&_ul]:pl-0 [&_ol]:list-decimal [&_ol]:pr-5 [&_ol]:pl-0 [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-0.5 [&_table]:w-full [&_table]:text-right [&_thead_th]:!text-right [&_th]:!text-right [&_td]:!text-right">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm, remarkBreaks]}
+                      components={{
+                        table: ({ node, ...props }) => (
+                          <div className="w-full overflow-x-auto my-3 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs bg-white dark:bg-gray-900/40">
+                            <table {...props} className="w-full text-right border-collapse text-xs sm:text-sm m-0" dir="rtl" />
+                          </div>
+                        ),
+                        thead: ({ node, ...props }) => (
+                          <thead {...props} className="bg-gray-50/80 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700" />
+                        ),
+                        th: ({ node, style, ...props }: any) => {
+                          const isCentered = style?.textAlign === 'center';
+                          return (
+                            <th
+                              {...props}
+                              style={{ ...style, textAlign: isCentered ? 'center' : 'right' }}
+                              className="text-right font-bold py-2.5 px-3 text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 align-middle text-xs sm:text-sm"
+                            />
+                          );
+                        },
+                        td: ({ node, style, ...props }: any) => {
+                          const isCentered = style?.textAlign === 'center';
+                          return (
+                            <td
+                              {...props}
+                              style={{ ...style, textAlign: isCentered ? 'center' : 'right' }}
+                              className="text-right py-2.5 px-3 text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800/60 align-top text-xs sm:text-sm leading-relaxed"
+                            />
+                          );
+                        },
+                      }}
+                    >
+                      {draftDescription}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">لا يوجد نص للمعاينة، اكتب وصفاً في تبويب التحرير.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Section 5: Badges */}

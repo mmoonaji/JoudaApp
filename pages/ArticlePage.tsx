@@ -311,6 +311,7 @@ export const ArticlePage: React.FC = () => {
             prose-strong:font-bold
             [&_p]:leading-relaxed [&_li]:leading-relaxed
             [&_br]:block [&_br]:mb-6 [&_br]:content-['']
+            [&_table]:w-full [&_table]:text-right [&_thead_th]:!text-right [&_th]:!text-right [&_td]:!text-right
           `}>
             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
               {article.content}
