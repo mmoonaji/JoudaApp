@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { Plus, Minus, ShoppingBag, Cake, Check, Heart, Sparkles, Gift, BadgeCheck } from 'lucide-react';
-import Lottie, { LottieRefCurrentProps } from 'lottie-react';
-import heartAnimation from '../../public/system-regular-48-favorite-heart-morph-select.json';
 import { Product } from '../../services/supabaseService';
 import { canAddQuantity, getLowStockLabel } from '../../utils/stockUtils';
 import { AppImage } from '../ui/AppImage';
@@ -110,26 +108,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return null;
   };
 
-  const lottieRef = useRef<LottieRefCurrentProps>(null);
   const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      if (liked) {
-        lottieRef.current?.goToAndStop(30, true);
-      } else {
-        lottieRef.current?.goToAndStop(0, true);
-      }
-      return;
-    }
-
-    if (liked) {
-      lottieRef.current?.playSegments([0, 30], true);
-    } else {
-      lottieRef.current?.playSegments([30, 0], true);
-    }
-  }, [liked]);
 
   return (
     <div 
@@ -189,13 +168,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             }`}
             aria-label="إضافة إلى المفضلة"
           >
-            <div className="w-[24px] h-[24px] flex items-center justify-center overflow-hidden">
-              <Lottie 
-                lottieRef={lottieRef}
-                animationData={heartAnimation}
-                loop={false}
-                autoplay={false}
-                style={{ width: '48px', height: '48px' }}
+            <div className="w-[24px] h-[24px] flex items-center justify-center">
+              <Heart
+                className={`w-5 h-5 transition-colors duration-200 ${
+                  liked
+                    ? 'text-red-500 fill-red-500'
+                    : 'text-gray-400'
+                }`}
+                style={liked && !isFirstRender.current ? {
+                  animation: 'heartPop 400ms cubic-bezier(0.17, 0.89, 0.32, 1.49)',
+                } : undefined}
+                onAnimationEnd={() => { isFirstRender.current = false; }}
               />
             </div>
           </button>

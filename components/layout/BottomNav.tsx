@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, Info, User, HeartPulse } from 'lucide-react';
+import { prefetchHandlers } from '../../shared/hooks/usePrefetch';
 
 export const BottomNav: React.FC = () => {
   const location = useLocation();
@@ -42,6 +43,7 @@ export const BottomNav: React.FC = () => {
                   <NavLink
                     to={tab.path}
                     onClick={() => handleTabClick(isActive)}
+                    {...prefetchHandlers(tab.path)}
                     className="w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-700 dark:from-brand-600 dark:to-brand-800 shadow-[0_8px_20px_rgba(211,47,47,0.3)] text-white hover:scale-105 active:scale-90 transition-transform duration-150 relative select-none"
                     aria-label="صحتك"
                   >
@@ -62,6 +64,7 @@ export const BottomNav: React.FC = () => {
                 key={tab.id}
                 to={tab.path}
                 onClick={() => handleTabClick(isActive)}
+                {...prefetchHandlers(tab.path)}
                 aria-current={isActive ? 'page' : undefined}
                 className={`flex flex-col items-center justify-center w-16 min-h-[48px] min-w-[48px] py-1.5 gap-1 select-none active:scale-90 transition-all duration-150 ${
                   isActive 

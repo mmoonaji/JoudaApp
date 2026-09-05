@@ -18,9 +18,12 @@ export const ReloadPrompt: React.FC = () => {
         }, 60 * 60 * 1000);
 
         // فحص التحديثات كلما عاد العميل للتطبيق من الخلفية
+        // تأخير 3 ثوانٍ لمنع مزاحمة الشبكة أثناء تفاعل العميل مع الأزرار
+        let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
         visibilityHandlerRef.current = () => {
+          if (visibilityTimer) clearTimeout(visibilityTimer);
           if (document.visibilityState === 'visible') {
-            r.update();
+            visibilityTimer = setTimeout(() => r.update(), 3000);
           }
         };
         document.addEventListener('visibilitychange', visibilityHandlerRef.current);

@@ -15,9 +15,10 @@
     <meta property="og:url" content="https://jouda.app">
     <meta name="theme-color" content="#D32F2F">
 
-    <!-- Bunny Fonts (Faster & Privacy-Friendly alternative to Google Fonts) -->
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=cairo:300,400,600,700&display=swap" rel="stylesheet" />
+    <!-- Bunny Fonts (Non-blocking & Privacy-Friendly alternative to Google Fonts) -->
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+    <link rel="preload" href="https://fonts.bunny.net/css?family=cairo:300,400,600,700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.bunny.net/css?family=cairo:300,400,600,700&display=swap"></noscript>
   </head>
   <body>
     <div id="root"></div>

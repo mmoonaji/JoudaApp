@@ -4,6 +4,7 @@ import { HomePackagesCarousel } from './HomePackagesCarousel';
 import { TrendingRecipes } from '../blog/TrendingRecipes';
 import { KnowledgeHub } from '../../pages/KnowledgeHub';
 import { ScanLine, ChefHat, Store, Sparkles, ArrowLeft } from 'lucide-react';
+import { prefetchHandlers } from '../../shared/hooks/usePrefetch';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -84,6 +85,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) =
         {/* متجر جوده */}
         <button
           onClick={() => navigate('/products')}
+          {...prefetchHandlers('/products')}
           className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-150/70 dark:border-gray-800 text-right px-3 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2.5 w-full"
         >
           <div className="w-10 h-10 rounded-[0.9rem] bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-300">
@@ -98,6 +100,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenScanner }) =
         {/* وصفات جوده */}
         <button
           onClick={() => navigate('/recipes')}
+          {...prefetchHandlers('/recipes')}
           className="group relative min-h-[5rem] h-auto rounded-[1.25rem] bg-white dark:bg-gray-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none border border-gray-150/70 dark:border-gray-800 text-right px-3 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2.5 w-full"
         >
           <div className="w-10 h-10 rounded-[0.9rem] bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:-rotate-3 transition-transform duration-300">

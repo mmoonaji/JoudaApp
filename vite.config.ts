@@ -17,7 +17,6 @@ export default defineConfig(() => {
             'supabase-vendor': ['@supabase/supabase-js'],
             'map-vendor':      ['leaflet', 'react-leaflet'],
             'ui-vendor':       ['lucide-react'],
-            'lottie-vendor':   ['lottie-react'], // #9: separated so pages without Lottie don't load it
           }
         }
       }
