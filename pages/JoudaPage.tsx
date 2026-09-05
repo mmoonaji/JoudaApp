@@ -183,6 +183,16 @@ const TESTIMONIALS = [
   },
 ];
 
+const CAROUSEL_AUTO_PLAY_INTERVAL_MS = 4000;
+const USER_INTERACTION_PAUSE_MS = 8000;
+
+const getCarouselStepWidth = (): number => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const cardWidth = isMobile ? 290 : 350;
+  const gap = 16;
+  return cardWidth + gap;
+};
+
 export const JoudaPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
@@ -201,12 +211,9 @@ export const JoudaPage: React.FC = () => {
     if (!container) return;
 
     const scrollLeft = Math.abs(container.scrollLeft);
-    const isMobile = window.innerWidth < 768;
-    const cardWidth = isMobile ? 290 : 350;
-    const gap = 16;
-    const stepWidth = cardWidth + gap;
-
+    const stepWidth = getCarouselStepWidth();
     const index = Math.round(scrollLeft / stepWidth);
+
     if (index >= 0 && index < TESTIMONIALS.length && index !== activeIndex) {
       setActiveIndex(index);
     }
@@ -216,15 +223,12 @@ export const JoudaPage: React.FC = () => {
     setActiveIndex(index);
     const container = scrollRef.current;
     if (container) {
-      const isMobile = window.innerWidth < 768;
-      const cardWidth = isMobile ? 290 : 350;
-      const gap = 16;
-      const stepWidth = cardWidth + gap;
+      const stepWidth = getCarouselStepWidth();
       const targetLeft = -(stepWidth * index);
 
       container.scrollTo({
         left: targetLeft,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
     }
   };
@@ -235,31 +239,16 @@ export const JoudaPage: React.FC = () => {
 
     const interval = setInterval(() => {
       const now = Date.now();
-      // If user interacted in the last 8 seconds, skip auto-scrolling
-      if (now - lastInteractionTime.current < 8000) {
+      if (now - lastInteractionTime.current < USER_INTERACTION_PAUSE_MS) {
         return;
       }
 
       const nextIndex = (activeIndex + 1) % TESTIMONIALS.length;
-      setActiveIndex(nextIndex);
-
-      const container = scrollRef.current;
-      if (container) {
-        const isMobile = window.innerWidth < 768;
-        const cardWidth = isMobile ? 290 : 350;
-        const gap = 16;
-        const stepWidth = cardWidth + gap;
-        const targetLeft = -(stepWidth * nextIndex);
-
-        container.scrollTo({
-          left: targetLeft,
-          behavior: 'smooth'
-        });
-      }
-    }, 4000);
+      scrollToSlide(nextIndex);
+    }, CAROUSEL_AUTO_PLAY_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [activeIndex, TESTIMONIALS.length]);
+  }, [activeIndex]);
 
   return (
     <div className="pb-32 md:pb-12 animate-fade-in px-4 w-full max-w-3xl mx-auto">

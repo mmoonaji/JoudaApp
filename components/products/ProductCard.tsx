@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Plus, Minus, ShoppingBag, Cake, Check, Heart, Sparkles, Gift, BadgeCheck } from 'lucide-react';
 import { Product } from '../../services/supabaseService';
 import { canAddQuantity, getLowStockLabel } from '../../utils/stockUtils';
@@ -109,6 +109,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   const isFirstRender = useRef(true);
+  useEffect(() => {
+    isFirstRender.current = false;
+  }, []);
 
   return (
     <div 
@@ -172,13 +175,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Heart
                 className={`w-5 h-5 transition-colors duration-200 ${
                   liked
-                    ? 'text-red-500 fill-red-500'
+                    ? `text-red-500 fill-red-500 ${!isFirstRender.current ? 'animate-heart-pop' : ''}`
                     : 'text-gray-400'
                 }`}
-                style={liked && !isFirstRender.current ? {
-                  animation: 'heartPop 400ms cubic-bezier(0.17, 0.89, 0.32, 1.49)',
-                } : undefined}
-                onAnimationEnd={() => { isFirstRender.current = false; }}
               />
             </div>
           </button>

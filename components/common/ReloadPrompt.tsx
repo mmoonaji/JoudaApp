@@ -1,92 +1,103 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { Sparkles, RefreshCw, X } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+
+const PERIODIC_SW_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const VISIBILITY_STAGGER_DELAY_MS = 3000;              // 3 seconds
+const TOAST_DISPLAY_DURATION_MS = 3000;                // 3 seconds
 
 export const ReloadPrompt: React.FC = () => {
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const periodicCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const visibilityHandlerRef = useRef<(() => void) | null>(null);
 
+  const [showToast, setShowToast] = useState(false);
+
   const {
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r) {
-      if (r) {
-        // فحص التحديثات كل ساعة بصمت
-        intervalRef.current = setInterval(() => {
-          r.update();
-        }, 60 * 60 * 1000);
+    immediate: true,
+    onRegistered(registration) {
+      if (!registration) return;
 
-        // فحص التحديثات كلما عاد العميل للتطبيق من الخلفية
-        // تأخير 3 ثوانٍ لمنع مزاحمة الشبكة أثناء تفاعل العميل مع الأزرار
-        let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
-        visibilityHandlerRef.current = () => {
-          if (visibilityTimer) clearTimeout(visibilityTimer);
-          if (document.visibilityState === 'visible') {
-            visibilityTimer = setTimeout(() => r.update(), 3000);
-          }
-        };
-        document.addEventListener('visibilitychange', visibilityHandlerRef.current);
-      }
+      // Check for updates periodically in the background
+      periodicCheckRef.current = setInterval(() => {
+        registration.update();
+      }, PERIODIC_SW_CHECK_INTERVAL_MS);
+
+      // Check for updates when user returns to the tab, staggered to avoid network contention
+      visibilityHandlerRef.current = () => {
+        if (visibilityTimerRef.current) {
+          clearTimeout(visibilityTimerRef.current);
+        }
+        if (document.visibilityState === 'visible') {
+          visibilityTimerRef.current = setTimeout(() => {
+            registration.update();
+          }, VISIBILITY_STAGGER_DELAY_MS);
+        }
+      };
+
+      document.addEventListener('visibilitychange', visibilityHandlerRef.current);
     },
     onRegisterError(error) {
-      console.error('SW registration error', error);
+      console.error('Service worker registration failed:', error);
     },
   });
 
-  // M5: تنظيف الـ interval و event listener عند إزالة المكون
+  // Automatically activate detected updates in the background without blocking the UI
+  useEffect(() => {
+    if (needRefresh) {
+      updateServiceWorker(true);
+    }
+  }, [needRefresh, updateServiceWorker]);
+
+  // Show a gentle, auto-dismissing toast when a new service worker takes control
+  useEffect(() => {
+    let hadActiveController = Boolean(navigator.serviceWorker?.controller);
+
+    const handleControllerChange = () => {
+      if (hadActiveController) {
+        setShowToast(true);
+        if (toastTimerRef.current) {
+          clearTimeout(toastTimerRef.current);
+        }
+        toastTimerRef.current = setTimeout(() => {
+          setShowToast(false);
+        }, TOAST_DISPLAY_DURATION_MS);
+      }
+      hadActiveController = true;
+    };
+
+    navigator.serviceWorker?.addEventListener('controllerchange', handleControllerChange);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('controllerchange', handleControllerChange);
+    };
+  }, []);
+
+  // Clean up all active timers and event listeners on unmount
   useEffect(() => {
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (periodicCheckRef.current) clearInterval(periodicCheckRef.current);
+      if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (visibilityHandlerRef.current) {
         document.removeEventListener('visibilitychange', visibilityHandlerRef.current);
       }
     };
   }, []);
 
-  if (!needRefresh) return null;
+  if (!showToast) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border border-gray-200 dark:border-gray-800 animate-scale-in relative">
-        
-        {/* Close Button */}
-        <button 
-          onClick={() => setNeedRefresh(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-blue-100 dark:border-blue-900/30">
-          <Sparkles className="w-10 h-10 text-blue-600 dark:text-blue-400" />
-        </div>
-        
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3">
-          تطبيقك صار أفضل! ✨
-        </h2>
-        
-        <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
-          جهزنا لك تحديث جديد يخلي طلباتك أسهل وأسرع. بضغطة زر وتكون على أحدث نسخة!
-        </p>
-
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={() => updateServiceWorker(true)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-lg shadow-blue-200 dark:shadow-none active:scale-[0.98]"
-          >
-            <RefreshCw className="w-5 h-5" />
-            <span className="text-lg">تحديث الآن 🚀</span>
-          </button>
-          
-          <button
-            onClick={() => setNeedRefresh(false)}
-            className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold py-4 px-6 rounded-2xl transition-colors active:scale-[0.98]"
-          >
-            <span className="text-lg">بعدين</span>
-          </button>
-        </div>
-      </div>
+    <div 
+      role="status" 
+      aria-live="polite" 
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] bg-gray-900/95 dark:bg-white/95 text-white dark:text-gray-900 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs font-black border border-white/10 dark:border-gray-200 pointer-events-none transition-all duration-300 animate-slide-up-fade"
+    >
+      <Sparkles className="w-4 h-4 text-amber-400 dark:text-amber-500 shrink-0" />
+      <span>تم تحديث التطبيق لأحدث نسخة بنجاح ✨</span>
     </div>
   );
 };

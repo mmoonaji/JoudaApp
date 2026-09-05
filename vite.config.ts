@@ -24,7 +24,7 @@ export default defineConfig(() => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         devOptions: {
           enabled: true
         },
@@ -59,6 +59,8 @@ export default defineConfig(() => {
         },
         workbox: {
           cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           navigateFallback: 'index.html',
           globPatterns: [
             'index.html',
